@@ -1,15 +1,20 @@
-import React from 'react'
-import { StyleSheet, Text, View } from 'react-native'
-import './../global.css'
+import { useRouter } from 'expo-router';
+import { Button, StyleSheet, View } from 'react-native';
 
-const index = () => {
+export default function Index() {
+  const router = useRouter();
+
   return (
-    <View>
-      <Text>index 01</Text>
+    <View style={styles.container}>
+      <Button title="Go to Onboard" onPress={() => router.push('/screens/Onboard')} />
     </View>
-  )
+  );
 }
 
-export default index
-
-const styles = StyleSheet.create({})
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});

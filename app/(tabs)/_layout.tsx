@@ -1,16 +1,13 @@
-/* eslint-disable import/no-unresolved */
-import { IconSymbol } from '@/components/ui/icon-symbol';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Image } from 'expo-image';
 import { Tabs } from 'expo-router';
 import React from 'react';
 import { Dimensions, StyleSheet, TouchableOpacity, View } from 'react-native';
-
-// The special home icon with the green background
-const homeIconSvg = require('@/assets/images/tabbar/middleIcon.svg');
+ 
+import { IconSymbol } from '../_components/ui/icon-symbol'; // The special home icon with the green background
+import MiddleIcon from '../assets/images/tabbar/middleIcon.svg';
 
 // Colors for the tab icons
-const ACTIVE_COLOR = '#000000';
+const ACTIVE_COLOR = '#85CC16';
 const INACTIVE_COLOR = '#8E8E93';
 
 const { width } = Dimensions.get('window');
@@ -59,13 +56,29 @@ const MyTabBar = ({ state, descriptors, navigation }: BottomTabBarProps) => {
   );
 };
 
+const RadarActiveCircle = ({ isActive, children }: { isActive: boolean; children: React.ReactNode }) => {
+  if (!isActive) return <>{children}</>; // Render only the children when not active
+
+  return (
+    <View style={styles.homeIconContainer}>
+      <View style={[styles.homeIconActive, { backgroundColor: 'rgba(133,204,22,0.15)' }]}> 
+        {children}
+      </View>
+    </View>
+  );
+};
+
 // Helper function to get the icon component
 const getIconComponent = (routeName: string, isFocused: boolean) => {
   const iconStyle = { color: isFocused ? ACTIVE_COLOR : INACTIVE_COLOR };
 
   switch (routeName) {
     case 'Home':
-      return <Image source={homeIconSvg} style={styles.homeIcon} />; // Changed to SVG
+      return (
+        <RadarActiveCircle isActive={isFocused}>
+          <MiddleIcon width={51} height={51} style={styles.homeIcon} />
+        </RadarActiveCircle>
+      );
     case 'Search':
       return <IconSymbol name="magnifyingglass" size={28} {...iconStyle} />;
     case 'Favorite':
@@ -121,5 +134,15 @@ const styles = StyleSheet.create({
     width: width * 0.14, 
     height: width * 0.14, 
     transform: [{ translateY: 0 }],
+  },
+  homeIconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: width * 0.01, 
+  },
+  homeIconActive: {
+    backgroundColor: 'rgba(133, 204, 22, 0.15)', 
+    borderRadius: (width * 0.14 + width * 0.04) / 1, 
+    padding: width * 0.015, 
   },
 });
