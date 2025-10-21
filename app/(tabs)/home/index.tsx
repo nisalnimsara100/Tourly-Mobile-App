@@ -96,6 +96,7 @@ export default function NearbyScreen() {
     latitude: 6.927079, 
     longitude: 79.861244
   });
+  const [selectedDistance, setSelectedDistance] = useState(maxDistance);
 
   // Calculate distance between two coordinates using Haversine formula
   const calculateDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -265,6 +266,11 @@ export default function NearbyScreen() {
     );
   };
 
+  const handleDistanceChange = (distance: number) => {
+    setSelectedDistance(distance);
+    setMaxDistance(distance);
+  };
+
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -280,31 +286,23 @@ export default function NearbyScreen() {
       <Header />
       <View style={{ flex: 1, backgroundColor: 'white', borderTopLeftRadius: 26.5, borderTopRightRadius: 26.5, overflow: 'hidden' }}>
         <View style={{ flex: 1 }}>
-          <View style={styles.header}>
+          <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
             <Text style={styles.title}>Nearby Attractions</Text>
             <View style={styles.filterContainer}>
-              <Text style={styles.filterLabel}>Maximum Distance: {maxDistance} km</Text>
-              <View style={styles.buttonGroup}>
-                {[10, 25, 50, 100].map((distance) => (
-                  <Pressable
-                    key={distance}
-                    style={[
-                      styles.filterButton,
-                      maxDistance === distance && styles.filterButtonActive
-                    ]}
-                    onPress={() => setMaxDistance(distance)}
-                  >
-                    <Text 
-                      style={[
-                        styles.filterButtonText,
-                        maxDistance === distance && styles.filterButtonTextActive
-                      ]}
-                    >
-                      {distance} km
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+              <Pressable
+                style={[styles.filterButton, styles.combinedFilterButton, { backgroundColor: '#f0f0f0' }]}
+                onPress={() => {
+                  Alert.alert('Change Distance', 'Select a distance', [
+                    { text: '10 km', onPress: () => handleDistanceChange(10) },
+                    { text: '25 km', onPress: () => handleDistanceChange(25) },
+                    { text: '50 km', onPress: () => handleDistanceChange(50) },
+                    { text: '100 km', onPress: () => handleDistanceChange(100) },
+                  ]);
+                }}
+              >
+                <Text style={[styles.filterButtonText, { color: '#000' }]}>{selectedDistance} km</Text>
+                <FontAwesome5 name="sort" size={16} color="#000" style={{ marginLeft: 5 }} />
+              </Pressable>
             </View>
           </View>
 
@@ -337,53 +335,49 @@ const styles = StyleSheet.create({
   header: {
     padding: 16,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 20,
   },
   filterContainer: {
-    marginTop: 8,
-  },
-  filterLabel: {
-    fontSize: 16,
-    marginBottom: 8,
-    color: '#666',
-  },
-  buttonGroup: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    position: 'absolute',
+    right: 16,
+    top: 16,
   },
   filterButton: {
+    marginRight: 8,
+    padding: 6,
+    backgroundColor: '#f0f0f0',
+    borderRadius: 20,
+  },
+  combinedFilterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+  },
+  distanceButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#f0f0f0',
-    marginHorizontal: 4,
-  },
-  filterButtonActive: {
     backgroundColor: '#2196F3',
   },
   filterButtonText: {
-    color: '#666',
-    fontSize: 14,
-  },
-  filterButtonTextActive: {
     color: '#fff',
+    fontSize: 14,
   },
   list: {
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 0, 
   },
   nearbyCard: {
     width: 150,
     height: 230,
     borderRadius: 15,
-    marginRight: 15,
+    marginRight: 10,
     overflow: 'hidden',
     backgroundColor: '#000',
   },
