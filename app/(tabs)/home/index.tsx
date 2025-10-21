@@ -11,6 +11,7 @@ import {
   FlatList,
   Image,
   Pressable,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -87,11 +88,80 @@ const Header = () => (
   </View>
 );
 
+const events = [
+  {
+    id: '1',
+    title: "It’s party time!!",
+    subtitle: "Enjoy 15% off",
+    location: "Classendra Hotel",
+    imageUrl: "https://picsum.photos/seed/event1/400/200",
+    interestedCount: "100+",
+    avatars: [
+      "https://picsum.photos/seed/avatar1/50/50",
+      "https://picsum.photos/seed/avatar2/50/50",
+      "https://picsum.photos/seed/avatar3/50/50",
+      "https://picsum.photos/seed/avatar4/50/50",
+    ],
+  },
+  {
+    id: '2',
+    title: "Live Music Night",
+    subtitle: "Free Entry",
+    location: "Downtown Club",
+    imageUrl: "https://picsum.photos/seed/event2/400/200",
+    interestedCount: "200+",
+    avatars: [
+      "https://picsum.photos/seed/avatar5/50/50",
+      "https://picsum.photos/seed/avatar6/50/50",
+      "https://picsum.photos/seed/avatar7/50/50",
+      "https://picsum.photos/seed/avatar8/50/50",
+    ],
+  },
+];
+
+const EventCard = ({ event }: { event: typeof events[0] }) => {
+  return (
+    <View style={styles.eventCardContainer}>
+      <View style={styles.eventCard}>
+        <Image
+          source={{ uri: event.imageUrl }}
+          style={styles.eventCardBackground}
+        />
+        <View style={styles.eventCardOverlay}>
+          <View style={{ padding: 16, flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <FontAwesome5 name="map-pin" size={12} color="white" />
+              <Text style={styles.eventCardLocation}>{event.location}</Text>
+            </View>
+            <Text style={styles.eventCardMainText}>{event.title}</Text>
+            <Text style={styles.eventCardSubText}>{event.subtitle}</Text>
+            <View style={styles.interestedContainer}>
+              <Text style={styles.interestedText}>{event.interestedCount} interested</Text>
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
+                {event.avatars.map((avatar, index) => (
+                  <Image
+                    key={index}
+                    source={{ uri: avatar }}
+                    style={[styles.avatar, index === 0 ? { marginLeft: 0 } : {}]}
+                  />
+                ))}
+              </View>
+            </View>
+            <TouchableOpacity style={styles.findMoreButton}>
+              <Text style={styles.findMoreButtonText}>Find More</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+};
+
 export default function NearbyScreen() {
   const router = useRouter();
   const [attractions, setAttractions] = useState<Attraction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [maxDistance, setMaxDistance] = useState(50); // Default 50km radius
+  const [maxDistance, setMaxDistance] = useState(100); // Default 100km radius
   const [userLocation, setUserLocation] = useState<Coordinates>({
     latitude: 6.927079, 
     longitude: 79.861244
@@ -259,7 +329,7 @@ export default function NearbyScreen() {
           <View style={styles.ratingRow}>
             {renderStars(item.rating)}
             <Text style={styles.detailText}>{item.rating ? `(${item.rating.toFixed(1)})` : "(0)"}</Text>
-            <Text style={styles.viewDetailsSimplified}>{">>"}</Text>
+            <Text style={styles.viewDetailsSimplified}>{'>>'}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -284,44 +354,49 @@ export default function NearbyScreen() {
     <View style={{ flex: 1, backgroundColor: 'black' }}>
       <StatusBar barStyle="light-content" />
       <Header />
-      <View style={{ flex: 1, backgroundColor: 'white', borderTopLeftRadius: 26.5, borderTopRightRadius: 26.5, overflow: 'hidden' }}>
-        <View style={{ flex: 1 }}>
-          <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
-            <Text style={styles.title}>Nearby Attractions</Text>
-            <View style={styles.filterContainer}>
-              <Pressable
-                style={[styles.filterButton, styles.combinedFilterButton, { backgroundColor: '#f0f0f0' }]}
-                onPress={() => {
-                  Alert.alert('Change Distance', 'Select a distance', [
-                    { text: '10 km', onPress: () => handleDistanceChange(10) },
-                    { text: '25 km', onPress: () => handleDistanceChange(25) },
-                    { text: '50 km', onPress: () => handleDistanceChange(50) },
-                    { text: '100 km', onPress: () => handleDistanceChange(100) },
-                  ]);
-                }}
-              >
-                <Text style={[styles.filterButtonText, { color: '#000' }]}>{selectedDistance} km</Text>
-                <FontAwesome5 name="sort" size={16} color="#000" style={{ marginLeft: 5 }} />
-              </Pressable>
-            </View>
+      <ScrollView style={{ flex: 1, backgroundColor: 'white', borderTopLeftRadius: 26.5, borderTopRightRadius: 26.5, overflow: 'hidden' }} contentContainerStyle={{ paddingBottom: 100 }}>
+        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+          <Text style={styles.title}>Nearby Attractions</Text>
+          <View style={styles.filterContainer}>
+            <Pressable
+              style={[styles.filterButton, styles.combinedFilterButton, { backgroundColor: '#f0f0f0' }]}
+              onPress={() => {
+                Alert.alert('Change Distance', 'Select a distance', [
+                  { text: '10 km', onPress: () => handleDistanceChange(10) },
+                  { text: '25 km', onPress: () => handleDistanceChange(25) },
+                  { text: '50 km', onPress: () => handleDistanceChange(50) },
+                  { text: '100 km', onPress: () => handleDistanceChange(100) },
+                ]);
+              }}
+            >
+              <Text style={[styles.filterButtonText, { color: '#000' }]}>{selectedDistance} km</Text>
+              <FontAwesome5 name="sort" size={16} color="#000" style={{ marginLeft: 5 }} />
+            </Pressable>
           </View>
-
-          {attractions.length === 0 ? (
-            <View style={styles.centered}>
-              <Text>No attractions found within {maxDistance}km</Text>
-            </View>
-          ) : (
-            <FlatList
-              horizontal
-              data={attractions}
-              renderItem={renderNearbyAttractionItem}
-              keyExtractor={item => item.id}
-              contentContainerStyle={styles.list}
-              showsHorizontalScrollIndicator={false}
-            />
-          )}
         </View>
-      </View>
+
+        {attractions.length === 0 ? (
+          <View style={styles.centered}>
+            <Text>No attractions found within {maxDistance}km</Text>
+          </View>
+        ) : (
+          <FlatList
+            horizontal
+            data={attractions}
+            renderItem={renderNearbyAttractionItem}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.list}
+            showsHorizontalScrollIndicator={false}
+          />
+        )}
+
+        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }]}>
+          <Text style={styles.title}>What&apos;s Happening Around!</Text>
+        </View>
+        {events.map(event => (
+          <EventCard key={event.id} event={event} />
+        ))}
+      </ScrollView>
     </View>
   );
 }
@@ -460,5 +535,84 @@ const styles = StyleSheet.create({
     fontFamily: "Poppins-Regular",
     fontSize: 12,
     color: "white",
+  },
+  eventCardContainer: {
+    marginTop: 2,
+    paddingBottom: 8,
+    paddingHorizontal: 16,
+  },
+  eventCard: {
+    height: 150,
+    borderRadius: 14,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+  },
+  eventCardBackground: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  eventCardOverlay: {
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    flex: 1,
+  },
+  eventCardLocation: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 10,
+    color: 'white',
+    marginLeft: 5,
+  },
+  eventCardMainText: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 16,
+    color: 'white',
+    marginTop: 15,
+  },
+  eventCardSubText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 14,
+    color: 'white',
+  },
+  findMoreButton: {
+    backgroundColor: '#85cc16',
+    borderRadius: 5,
+    width: 80,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    bottom: 15,
+    left: 16,
+  },
+  findMoreButtonText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
+    color: 'white',
+  },
+  interestedContainer: {
+    position: 'absolute',
+    bottom: 10,
+    right: 16,
+  },
+  interestedText: {
+    fontFamily: 'Poppins-Medium',
+    fontSize: 10,
+    color: 'white',
+    textAlign: 'right',
+    marginBottom: 7,
+  },
+  avatar: {
+    width: 25,
+    height: 25,
+    borderRadius: 15,
+    marginLeft: -8,
+    borderWidth: 1,
+    borderColor: 'white',
+    bottom: 3,
+  },
+  eventCardTitle: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 20,
+    marginBottom: 16,
   },
 });
