@@ -1,10 +1,13 @@
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Dimensions, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
  
-import { IconSymbol } from '../_components/ui/icon-symbol'; // The special home icon with the green background
 import MiddleIcon from '../assets/images/tabbar/middleIcon.svg';
+import Vector from '../assets/images/tabbar/vector.svg';
+import Vector1 from '../assets/images/tabbar/vector1.svg';
+import Vector2 from '../assets/images/tabbar/vector2.svg';
+import Vector3 from '../assets/images/tabbar/vector3.svg';
 
 // Colors for the tab icons
 const ACTIVE_COLOR = '#85CC16';
@@ -70,25 +73,47 @@ const RadarActiveCircle = ({ isActive, children }: { isActive: boolean; children
 
 // Helper function to get the icon component
 const getIconComponent = (routeName: string, isFocused: boolean) => {
-  const iconStyle = { color: isFocused ? ACTIVE_COLOR : INACTIVE_COLOR };
+  const iconSize = 28;
+  const iconColor = isFocused ? ACTIVE_COLOR : INACTIVE_COLOR;
+  
+  // Extract the base route name (remove /index if present)
+  const baseRouteName = routeName.includes('/') ? routeName.split('/')[0] : routeName;
 
-  switch (routeName) {
-    case 'Home':
+  switch (baseRouteName) {
+    case 'home':
       return (
         <RadarActiveCircle isActive={isFocused}>
           <MiddleIcon width={51} height={51} style={styles.homeIcon} />
         </RadarActiveCircle>
       );
-    case 'Search':
-      return <IconSymbol name="magnifyingglass" size={28} {...iconStyle} />;
-    case 'Favorite':
-      return <IconSymbol name="heart" size={28} {...iconStyle} />;
-    case 'Utilities':
-      return <IconSymbol name="square.grid.2x2" size={28} {...iconStyle} />;
-    case 'Profile':
-      return <IconSymbol name="person" size={28} {...iconStyle} />;
+    case 'search':
+      return (
+        <View style={styles.iconContainer}>
+          <Vector width={iconSize} height={iconSize} fill={iconColor} />
+        </View>
+      );
+    case 'favorite':
+      return (
+        <View style={styles.iconContainer}>
+          <Vector1 width={iconSize} height={iconSize} fill={iconColor} />
+        </View>
+      );
+    case 'utilities':
+      return (
+        <View style={styles.iconContainer}>
+          <Vector2 width={iconSize} height={iconSize} fill={iconColor} />
+        </View>
+      );
+    case 'profile':
+      return (
+        <View style={styles.iconContainer}>
+          <Vector3 width={iconSize} height={iconSize} fill={iconColor} />
+        </View>
+      );
     default:
-      return null;
+      return (
+        <Text style={{ fontSize: 8, color: 'red' }}>Unknown: {routeName}</Text>
+      );
   }
 };
 
@@ -96,12 +121,13 @@ export default function TabLayout() {
   return (
     <Tabs
       tabBar={(props) => <MyTabBar {...props} />}
+      initialRouteName="home"
       screenOptions={{ headerShown: false }}>
-      <Tabs.Screen name="Search" />
-      <Tabs.Screen name="Favorite" />
-      <Tabs.Screen name="Home" />
-      <Tabs.Screen name="Utilities" />
-      <Tabs.Screen name="Profile" />
+      <Tabs.Screen name="search" />
+      <Tabs.Screen name="favorite" />
+      <Tabs.Screen name="home" />
+      <Tabs.Screen name="profile" />
+      <Tabs.Screen name="utilities" />
     </Tabs>
   );
 }
@@ -129,6 +155,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: height * 0.02, 
+  },
+  iconContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   homeIcon: {
     width: width * 0.14, 

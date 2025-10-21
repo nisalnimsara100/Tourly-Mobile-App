@@ -1,13 +1,8 @@
- 
 import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { SplashScreen, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-
-export const unstable_settings = {
-  initialRouteName: 'screens/Onboard/index',
-};
 
 SplashScreen.preventAutoHideAsync();
 
@@ -29,8 +24,7 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={DefaultTheme}>
-      <Stack initialRouteName="screens/Onboard/index">
-        <Stack.Screen name="screens/Onboard/index" options={{ headerShown: false }} />
+      <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       </Stack>
       <StatusBar style="auto" />
