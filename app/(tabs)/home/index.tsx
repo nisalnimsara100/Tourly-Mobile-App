@@ -1,273 +1,334 @@
-import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Button, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
-// 🔑 Import the Firestore database instance (Adjust path as necessary)
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  ActivityIndicator,
+  TouchableOpacity,
+  Alert,
+  Pressable,
+} from 'react-native';
+import { useRouter } from 'expo-router';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../_constants/firebaseConfig';
+import * as Location from 'expo-location';
 
-// Interfaces for the attraction data structure
-interface Guideline {
-  description: string;
-  icon: string;
-  type: string;
-}
-
+// Types
 interface Coordinates {
   latitude: number;
   longitude: number;
 }
 
-interface Location {
-  address: string;
-  city: string;
-  coordinates: Coordinates;
-  province: string;
-}
-
-interface NearbyAttraction {
-  distance: number;
-  id: string;
-  name: string;
-}
-
-interface OpeningHours {
-  monday: string;
-  tuesday: string;
-  wednesday: string;
-  thursday: string;
-  friday: string;
-  saturday: string;
-  sunday: string;
-}
-
 interface Attraction {
   id: string;
   name: string;
-  amenities: {
-    guidedTours: boolean;
-    parkingAvailable: boolean;
-    restaurants: boolean;
-    restrooms: boolean;
-    shops: boolean;
+  location: {
+    coordinates: Coordinates;
+    address: string;
+    city: string;
+    province: string;
   };
-  bestTimeToVisit: string;
   description: string;
-  entranceFee: string;
-  estimatedDuration: string;
-  guidelines: Guideline[];
-  history: string;
-  images: string[];
-  location: Location;
-  nearbyAttractions: NearbyAttraction[];
-  openingHours: OpeningHours;
-  rating: number;
-  reviewCount: number;
-  type: string;
+  imageUrl?: string;
+  images?: string[];
+  distance?: number; // Added after calculation
+  rating?: number;
+  reviewCount?: number;
+  type?: string;
+  estimatedDuration?: string;
+  entranceFee?: string;
+  bestTimeToVisit?: string;
 }
-// --- End Interface Definition ---
 
-
-export default function HomeScreen() {
+export default function NearbyScreen() {
+  const router = useRouter();
   const [attractions, setAttractions] = useState<Attraction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [maxDistance, setMaxDistance] = useState(50); // Default 50km radius
+  const [userLocation, setUserLocation] = useState<Coordinates>({
+    latitude: 6.927079, // Default location (Colombo, Sri Lanka)
+    longitude: 79.861244
+  });
 
-  // Function to fetch data from Firestore
-  const fetchAttractions = async () => {
+  // Calculate distance between two coordinates using Haversine formula
+  const calculateDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in km
+  }, []);
+
+  // Fetch attractions and calculate distances
+  const fetchAttractions = useCallback(async () => {
     try {
-      // Get all attractions from the attractions collection
-      const attractionsRef = collection(db, "attractions");
-      const attractionsSnapshot = await getDocs(attractionsRef);
+      const attractionsRef = collection(db, 'attractions');
+      const snapshot = await getDocs(attractionsRef);
       
-      if (attractionsSnapshot.empty) {
-        console.log("No attractions found in the database");
+      if (snapshot.empty) {
         setAttractions([]);
-        setLoading(false);
         return;
       }
 
-      const fetchedAttractions: Attraction[] = [];
-      attractionsSnapshot.forEach((doc) => {
-        const data = doc.data();
+      const attractionsWithDistance = snapshot.docs.map(doc => {
+        const rawData = doc.data();
+        console.log('Fetched attraction in list:', doc.id, rawData);
+        const distance = calculateDistance(
+          userLocation.latitude,
+          userLocation.longitude,
+          rawData.location.coordinates.latitude,
+          rawData.location.coordinates.longitude
+        );
         
-        // Map the Firestore document to our Attraction type
-        fetchedAttractions.push({
+        const processedData: Attraction = {
           id: doc.id,
-          name: data.name || doc.id,
-          bestTimeToVisit: data.bestTimeToVisit || 'N/A',
-          description: data.description || 'No description provided.',
-          entranceFee: data.entranceFee || 'N/A',
-          estimatedDuration: data.estimatedDuration || 'N/A',
-          amenities: {
-            guidedTours: data.amenities?.guidedTours ?? false,
-            parkingAvailable: data.amenities?.parkingAvailable ?? false,
-            restaurants: data.amenities?.restaurants ?? false,
-            restrooms: data.amenities?.restrooms ?? false,
-            shops: data.amenities?.shops ?? false,
-          },
-          guidelines: data.guidelines || [],
-          history: data.history || '',
-          images: data.images || [],
-          location: data.location || {
-            address: 'N/A',
-            city: 'N/A',
-            coordinates: { latitude: 0, longitude: 0 },
-            province: 'N/A'
-          },
-          nearbyAttractions: data.nearbyAttractions || [],
-          openingHours: data.openingHours || {
-            monday: 'N/A',
-            tuesday: 'N/A',
-            wednesday: 'N/A',
-            thursday: 'N/A',
-            friday: 'N/A',
-            saturday: 'N/A',
-            sunday: 'N/A'
-          },
-          rating: data.rating || 0,
-          reviewCount: data.reviewCount || 0,
-          type: data.type || 'unknown'
-        });
+          name: rawData.name,
+          location: rawData.location,
+          description: rawData.description,
+          distance,
+          images: rawData.imageUrl ? [rawData.imageUrl] : rawData.images || [],
+          imageUrl: rawData.imageUrl,
+          rating: rawData.rating,
+          reviewCount: rawData.reviewCount,
+          type: rawData.type,
+          estimatedDuration: rawData.estimatedDuration,
+          entranceFee: rawData.entranceFee,
+          bestTimeToVisit: rawData.bestTimeToVisit
+        };
+        
+        return processedData;
       });
-      
-      setAttractions(fetchedAttractions);
+
+      // Sort by distance and filter based on maxDistance
+      const sortedAttractions = attractionsWithDistance
+        .filter(attr => (attr.distance ?? Infinity) <= maxDistance)
+        .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
+
+      setAttractions(sortedAttractions);
     } catch (error) {
-      console.error("Error fetching attraction data: ", error);
-      Alert.alert(
-        "Error",
-        "Unable to load attractions. Please check your internet connection and try again.",
-        [{ text: "OK" }]
-      );
+      console.error('Error fetching attractions:', error);
+      Alert.alert('Error', 'Failed to load nearby attractions');
     } finally {
       setLoading(false);
     }
-  };
+  }, [maxDistance, userLocation, calculateDistance]);
 
-  // Run the fetch function once when the screen loads
+  // Get user location when component mounts
+  useEffect(() => {
+    const getUserLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(
+            'Permission Denied',
+            'Please enable location services to find nearby attractions.',
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+
+        const location = await Location.getCurrentPositionAsync({});
+        setUserLocation({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude
+        });
+      } catch (error) {
+        console.error('Error getting location:', error);
+        Alert.alert(
+          'Location Error',
+          'Unable to get your location. Using default location instead.',
+          [{ text: 'OK' }]
+        );
+      }
+    };
+
+    getUserLocation();
+  }, []);
+
+  // Fetch attractions when distance or location changes
   useEffect(() => {
     fetchAttractions();
-  }, []); 
+  }, [maxDistance, userLocation, fetchAttractions]);
 
-  // --- Rendering Functions ---
-  const navigateToDetails = (attractionId: string) => {
+  const navigateToDetails = (attraction: Attraction) => {
+    // Navigate to details screen with the attraction ID
     router.push({
-      pathname: "/home/post_details",
-      params: { id: attractionId }
+      pathname: '/home/details',
+      params: {
+        id: attraction.id
+      }
     });
   };
-  
-  // Component to render a single attraction card
-  const renderItem = ({ item }: { item: Attraction }) => (
+
+  const renderAttractionItem = ({ item }: { item: Attraction }) => (
     <TouchableOpacity 
       style={styles.card}
-      onPress={() => navigateToDetails(item.id)}
+      onPress={() => navigateToDetails(item)}
     >
-      <Text style={styles.cardTitle}>{item.name}</Text>
+      <View style={styles.cardHeader}>
+        <Text style={styles.cardTitle}>{item.name}</Text>
+        <Text style={styles.distance}>{item.distance?.toFixed(1)} km away</Text>
+      </View>
       
-      <Text style={styles.cardContent}>
-        {item.description.substring(0, 100)}... 
+      <Text style={styles.location}>
+        📍 {item.location.city}, {item.location.province}
       </Text>
       
-      <View style={styles.infoContainer}>
-        <Text style={styles.cardInfo}>⏱ Duration: {item.estimatedDuration}</Text>
-        <Text style={styles.cardInfo}>📍 {item.location.city}, {item.location.province}</Text>
-        <Text style={styles.cardInfo}>⭐ {item.rating.toFixed(1)} ({item.reviewCount} reviews)</Text>
-      </View>
-      
-      <View style={styles.amenitiesContainer}>
-        {item.amenities.parkingAvailable && <Text style={styles.tag}>🅿️ Parking</Text>}
-        {item.amenities.restaurants && <Text style={styles.tag}>🍽️ Restaurant</Text>}
-        {item.amenities.restrooms && <Text style={styles.tag}>🚻 Restrooms</Text>}
-      </View>
-      
-      <Button 
-        title="View Details" 
-        onPress={() => navigateToDetails(item.id)}
-      />
+      <Text style={styles.description} numberOfLines={2}>
+        {item.description}
+      </Text>
     </TouchableOpacity>
   );
 
-  // --- Main Component Return ---
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text>Loading Attractions...</Text>
-      </View>
-    );
-  }
-  
-  if (attractions.length === 0) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text>No attractions found.</Text>
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" />
+        <Text>Finding nearby attractions...</Text>
       </View>
     );
   }
 
   return (
-    <FlatList
-      data={attractions}
-      renderItem={renderItem}
-      keyExtractor={(item) => item.id}
-      contentContainerStyle={styles.list}
-    />
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Nearby Attractions</Text>
+        <View style={styles.filterContainer}>
+          <Text style={styles.filterLabel}>Maximum Distance: {maxDistance} km</Text>
+          <View style={styles.buttonGroup}>
+            {[10, 25, 50, 100].map((distance) => (
+              <Pressable
+                key={distance}
+                style={[
+                  styles.filterButton,
+                  maxDistance === distance && styles.filterButtonActive
+                ]}
+                onPress={() => setMaxDistance(distance)}
+              >
+                <Text 
+                  style={[
+                    styles.filterButtonText,
+                    maxDistance === distance && styles.filterButtonTextActive
+                  ]}
+                >
+                  {distance} km
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      {attractions.length === 0 ? (
+        <View style={styles.centered}>
+          <Text>No attractions found within {maxDistance}km</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={attractions}
+          renderItem={renderAttractionItem}
+          keyExtractor={item => item.id}
+          contentContainerStyle={styles.list}
+        />
+      )}
+    </View>
   );
 }
 
-
-// --- Styles (Same as before, ensuring clear card visibility) ---
 const styles = StyleSheet.create({
-  loadingContainer: {
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  header: {
+    padding: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  filterContainer: {
+    marginTop: 8,
+  },
+  filterLabel: {
+    fontSize: 16,
+    marginBottom: 8,
+    color: '#666',
+  },
+  buttonGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  filterButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    marginHorizontal: 4,
+  },
+  filterButtonActive: {
+    backgroundColor: '#2196F3',
+  },
+  filterButtonText: {
+    color: '#666',
+    fontSize: 14,
+  },
+  filterButtonTextActive: {
+    color: '#fff',
+  },
   list: {
-    padding: 10,
+    padding: 16,
   },
   card: {
     backgroundColor: '#fff',
-    padding: 15,
     borderRadius: 8,
-    marginBottom: 10,
-    elevation: 3, 
-    shadowColor: '#000', 
+    padding: 16,
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 5,
-    color: '#004d40',
+    flex: 1,
   },
-  cardContent: {
+  distance: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 10,
+    marginLeft: 8,
   },
-  infoContainer: {
-    marginVertical: 8,
-  },
-  cardInfo: {
-    fontSize: 12,
-    color: '#444',
-    marginBottom: 3,
-  },
-  amenitiesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  location: {
+    fontSize: 14,
+    color: '#666',
     marginBottom: 8,
-    gap: 8,
   },
-  tag: {
-    fontSize: 12,
-    backgroundColor: '#e0e0e0',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    overflow: 'hidden',
-  }
+  description: {
+    fontSize: 14,
+    color: '#444',
+    lineHeight: 20,
+  },
 });
