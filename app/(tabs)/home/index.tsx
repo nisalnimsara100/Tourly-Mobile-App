@@ -1,18 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  ActivityIndicator,
-  TouchableOpacity,
-  Alert,
-  Pressable,
-} from 'react-native';
+import { FontAwesome5 } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
 import { collection, getDocs } from 'firebase/firestore';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  FlatList,
+  Image,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { db } from '../../_constants/firebaseConfig';
-import * as Location from 'expo-location';
+import Logo from '../../assets/images/LogoForOnScreen.svg';
 
 // Types
 interface Coordinates {
@@ -32,7 +38,7 @@ interface Attraction {
   description: string;
   imageUrl?: string;
   images?: string[];
-  distance?: number; // Added after calculation
+  distance?: number; 
   rating?: number;
   reviewCount?: number;
   type?: string;
@@ -41,13 +47,53 @@ interface Attraction {
   bestTimeToVisit?: string;
 }
 
+const { width } = Dimensions.get('window');
+
+const Header = () => (
+  <View style={{ backgroundColor: 'black', height: width * 0.38, paddingHorizontal: width * 0.05, justifyContent: 'center' }}>
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: width * 0.1 }}>
+      <TouchableOpacity>
+        <FontAwesome5 name="map-marked-alt" size={width * 0.045} color="white" />
+      </TouchableOpacity>
+      <View style={{ flex: 1, alignItems: 'center' }}>
+        <Logo width={width * 0.22} height={width * 0.1} />
+      </View>
+      <TouchableOpacity>
+        <FontAwesome5 name="user-friends" size={width * 0.045} color="white" />
+      </TouchableOpacity>
+    </View>
+    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: width * 0.05 }}>
+      <TouchableOpacity>
+        <View style={{ backgroundColor: '#85cc16', borderRadius: 10, width: width * 0.21, minHeight: width * 0.08, paddingVertical: 6, justifyContent: 'center', alignItems: 'center', shadowColor: 'rgba(0,0,0,0.1)', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 16, elevation: 5 }}>
+          <Text allowFontScaling={false} style={{ color: 'white', fontSize: width * 0.038, lineHeight: Math.round(width * 0.05) }}>Visit</Text>
+        </View>
+      </TouchableOpacity>
+      <TouchableOpacity>
+        <View style={{ backgroundColor: '#f3ffdf', borderRadius: 10, width: width * 0.21, minHeight: width * 0.08, paddingVertical: 6, justifyContent: 'center', alignItems: 'center', shadowColor: 'rgba(0,0,0,0.1)', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 16, elevation: 5 }}>
+          <Text allowFontScaling={false} style={{ color: 'black', fontSize: width * 0.038, lineHeight: Math.round(width * 0.05) }}>Stay</Text>
+        </View>
+      </TouchableOpacity>
+      <TouchableOpacity>
+        <View style={{ backgroundColor: '#f3ffdf', borderRadius: 10, width: width * 0.21, minHeight: width * 0.08, paddingVertical: 6, justifyContent: 'center', alignItems: 'center', shadowColor: 'rgba(0,0,0,0.1)', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 16, elevation: 5 }}>
+          <Text allowFontScaling={false} style={{ color: 'black', fontSize: width * 0.038, lineHeight: Math.round(width * 0.05) }}>Eat</Text>
+        </View>
+      </TouchableOpacity>
+      <TouchableOpacity>
+        <View style={{ backgroundColor: '#f3ffdf', borderRadius: 10, width: width * 0.21, minHeight: width * 0.08, paddingVertical: 6, justifyContent: 'center', alignItems: 'center', shadowColor: 'rgba(0,0,0,0.1)', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 16, elevation: 5 }}>
+          <Text allowFontScaling={false} style={{ color: 'black', fontSize: width * 0.038, lineHeight: Math.round(width * 0.05) }}>Buy</Text>
+        </View>
+      </TouchableOpacity>
+    </View>
+  </View>
+);
+
 export default function NearbyScreen() {
   const router = useRouter();
   const [attractions, setAttractions] = useState<Attraction[]>([]);
   const [loading, setLoading] = useState(true);
   const [maxDistance, setMaxDistance] = useState(50); // Default 50km radius
   const [userLocation, setUserLocation] = useState<Coordinates>({
-    latitude: 6.927079, // Default location (Colombo, Sri Lanka)
+    latitude: 6.927079, 
     longitude: 79.861244
   });
 
@@ -165,25 +211,59 @@ export default function NearbyScreen() {
     });
   };
 
-  const renderAttractionItem = ({ item }: { item: Attraction }) => (
-    <TouchableOpacity 
-      style={styles.card}
-      onPress={() => navigateToDetails(item)}
-    >
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{item.name}</Text>
-        <Text style={styles.distance}>{item.distance?.toFixed(1)} km away</Text>
-      </View>
-      
-      <Text style={styles.location}>
-        📍 {item.location.city}, {item.location.province}
-      </Text>
-      
-      <Text style={styles.description} numberOfLines={2}>
-        {item.description}
-      </Text>
-    </TouchableOpacity>
-  );
+  const renderNearbyAttractionItem = ({ item }: { item: Attraction }) => {
+    const renderStars = (rating: number | undefined) => {
+      const stars = [];
+      for (let i = 1; i <= 5; i++) {
+        stars.push(
+          <FontAwesome5
+            key={i}
+            name="star"
+            size={10}
+            color={i <= (rating || 0) ? "gold" : "gray"}
+            style={{ marginRight: 2 }}
+          />
+        );
+      }
+      return stars;
+    };
+
+    return (
+      <TouchableOpacity
+        style={styles.nearbyCard}
+        onPress={() => navigateToDetails(item)}
+      >
+        <Image
+          source={{ uri: (item.images && item.images[0]) || item.imageUrl || 'https://via.placeholder.com/150' }}
+          style={styles.nearbyCardImage}
+        />
+        <View style={styles.cardOverlay}>
+          <LinearGradient
+            colors={["transparent", "rgba(0,0,0,10.6)"]}
+            style={styles.gradientOverlay}
+          />
+          <Text
+            style={[styles.cardTitle, { bottom: 48 }]}
+            numberOfLines={2}
+            ellipsizeMode="tail"
+          >
+            {item.name}
+          </Text>
+          <View style={[styles.detailsRow, { bottom: 30 }]}>
+            <FontAwesome5 name="map-marker-alt" size={10} color="white" />
+            <Text style={[styles.detailText, { marginRight: 10 }]}>{item.distance ? `${item.distance.toFixed(1)} km` : "Unknown"}</Text>
+            <FontAwesome5 name="ticket-alt" size={10} color="white" />
+            <Text style={[styles.detailText, { marginHorizontal: 10 }]}>{item.entranceFee?.toLowerCase() === "free" ? "Free" : "Yes"}</Text>
+          </View>
+          <View style={styles.ratingRow}>
+            {renderStars(item.rating)}
+            <Text style={styles.detailText}>{item.rating ? `(${item.rating.toFixed(1)})` : "(0)"}</Text>
+            <Text style={styles.viewDetailsSimplified}>{">>"}</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   if (loading) {
     return (
@@ -195,56 +275,60 @@ export default function NearbyScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Nearby Attractions</Text>
-        <View style={styles.filterContainer}>
-          <Text style={styles.filterLabel}>Maximum Distance: {maxDistance} km</Text>
-          <View style={styles.buttonGroup}>
-            {[10, 25, 50, 100].map((distance) => (
-              <Pressable
-                key={distance}
-                style={[
-                  styles.filterButton,
-                  maxDistance === distance && styles.filterButtonActive
-                ]}
-                onPress={() => setMaxDistance(distance)}
-              >
-                <Text 
-                  style={[
-                    styles.filterButtonText,
-                    maxDistance === distance && styles.filterButtonTextActive
-                  ]}
-                >
-                  {distance} km
-                </Text>
-              </Pressable>
-            ))}
+    <View style={{ flex: 1, backgroundColor: 'black' }}>
+      <StatusBar barStyle="light-content" />
+      <Header />
+      <View style={{ flex: 1, backgroundColor: 'white', borderTopLeftRadius: 26.5, borderTopRightRadius: 26.5, overflow: 'hidden' }}>
+        <View style={{ flex: 1 }}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Nearby Attractions</Text>
+            <View style={styles.filterContainer}>
+              <Text style={styles.filterLabel}>Maximum Distance: {maxDistance} km</Text>
+              <View style={styles.buttonGroup}>
+                {[10, 25, 50, 100].map((distance) => (
+                  <Pressable
+                    key={distance}
+                    style={[
+                      styles.filterButton,
+                      maxDistance === distance && styles.filterButtonActive
+                    ]}
+                    onPress={() => setMaxDistance(distance)}
+                  >
+                    <Text 
+                      style={[
+                        styles.filterButtonText,
+                        maxDistance === distance && styles.filterButtonTextActive
+                      ]}
+                    >
+                      {distance} km
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
           </View>
+
+          {attractions.length === 0 ? (
+            <View style={styles.centered}>
+              <Text>No attractions found within {maxDistance}km</Text>
+            </View>
+          ) : (
+            <FlatList
+              horizontal
+              data={attractions}
+              renderItem={renderNearbyAttractionItem}
+              keyExtractor={item => item.id}
+              contentContainerStyle={styles.list}
+              showsHorizontalScrollIndicator={false}
+            />
+          )}
         </View>
       </View>
-
-      {attractions.length === 0 ? (
-        <View style={styles.centered}>
-          <Text>No attractions found within {maxDistance}km</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={attractions}
-          renderItem={renderAttractionItem}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.list}
-        />
-      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-  },
   centered: {
     flex: 1,
     justifyContent: 'center',
@@ -292,43 +376,95 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   list: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+  nearbyCard: {
+    width: 150,
+    height: 230,
+    borderRadius: 15,
+    marginRight: 15,
+    overflow: 'hidden',
+    backgroundColor: '#000',
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+  nearbyCardImage: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  cardOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 80,
+    borderBottomLeftRadius: 15,
+    borderBottomRightRadius: 15,
+  },
+  gradientOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 100,
+    borderBottomLeftRadius: 15,
+    borderBottomRightRadius: 15,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    flex: 1,
-  },
-  distance: {
+    position: "absolute",
+    bottom: 60,
+    left: 10,
+    right: 10,
+    fontFamily: "Poppins-SemiBold",
     fontSize: 14,
-    color: '#666',
-    marginLeft: 8,
+    color: "white",
   },
-  location: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
+  detailsRow: {
+    position: "absolute",
+    bottom: 40,
+    left: 10,
+    flexDirection: "row",
+    alignItems: "center",
   },
-  description: {
-    fontSize: 14,
-    color: '#444',
-    lineHeight: 20,
+  detailText: {
+    fontFamily: "Poppins-Medium",
+    fontSize: 10,
+    color: "rgba(255,255,255,0.8)",
+    marginLeft: 5,
+  },
+  ratingRow: {
+    position: "absolute",
+    bottom: 10,
+    left: 10,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  ratingText: {
+    fontFamily: "Poppins-Regular",
+    fontSize: 10,
+    color: "rgba(255,255,255,0.8)",
+    marginLeft: 5,
+  },
+  viewDetails: {
+    position: "absolute",
+    bottom: 5,
+    left: 10,
+    fontFamily: "Poppins-Regular",
+    fontSize: 9,
+    color: "white",
+  },
+  viewDetailsCentered: {
+    position: "absolute",
+    bottom: 10,
+    alignSelf: "center",
+    fontFamily: "Poppins-Regular",
+    fontSize: 9,
+    color: "white",
+  },
+  viewDetailsSimplified: {
+    marginLeft: 5,
+    fontFamily: "Poppins-Regular",
+    fontSize: 12,
+    color: "white",
   },
 });
