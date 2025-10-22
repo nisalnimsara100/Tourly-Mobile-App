@@ -12,8 +12,7 @@ export default function MessagesLayout() {
       <Stack.Screen
         name="details"
         options={{
-          title: 'Attraction Details',
-          presentation: 'card'
+          headerShown: false
         }}
       />
     </Stack>

@@ -366,6 +366,10 @@ export default function NearbyScreen() {
                   { text: '25 km', onPress: () => handleDistanceChange(25) },
                   { text: '50 km', onPress: () => handleDistanceChange(50) },
                   { text: '100 km', onPress: () => handleDistanceChange(100) },
+                  { text: '200 km', onPress: () => handleDistanceChange(200) },
+                  { text: '300 km', onPress: () => handleDistanceChange(300) },
+                  { text: '500 km', onPress: () => handleDistanceChange(500) },
+                  { text: 'Cancel', style: 'cancel' },
                 ]);
               }}
             >
@@ -390,7 +394,7 @@ export default function NearbyScreen() {
           />
         )}
 
-        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }]}>
+        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
           <Text style={styles.title}>What&apos;s Happening Around!</Text>
         </View>
         {events.map(event => (
@@ -537,8 +541,7 @@ const styles = StyleSheet.create({
     color: "white",
   },
   eventCardContainer: {
-    marginTop: 2,
-    paddingBottom: 8,
+    marginTop: 24,
     paddingHorizontal: 16,
   },
   eventCard: {

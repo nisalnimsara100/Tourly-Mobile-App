@@ -1,12 +1,12 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
-  Dimensions,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    Animated,
+    Dimensions,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
 } from 'react-native';
 import LogoForOnScreen from '../../assets/images/LogoForOnScreen.svg';
 import OnBoard1 from '../../assets/images/onboard/onBoard1.svg';
@@ -59,21 +59,41 @@ const Onboard = () => {
 
   const startAnimation = useCallback(() => {
     progress.setValue(0);
-    Animated.timing(progress, {
+    const anim = Animated.timing(progress, {
       toValue: 1,
-      duration: 5000, 
+      duration: 5000,
       useNativeDriver: false,
-    }).start(({ finished }) => {
+    });
+    anim.start(({ finished }) => {
       if (finished && currentStep < onboardingSteps.length - 1) {
         // Only auto-advance if NOT on the last screen
         handleNext();
       }
     });
+    return anim;
   }, [progress, handleNext, currentStep]);
 
   useEffect(() => {
-    startAnimation();
+    const anim = startAnimation();
+    return () => {
+      if (anim && (anim as any).stop) (anim as any).stop();
+    };
   }, [currentStep, startAnimation]);
+
+  // Pause/resume for long press
+  const animRef = useRef<Animated.CompositeAnimation | null>(null);
+  const pausedRef = useRef(false);
+
+  const handleLongPressStart = () => {
+    pausedRef.current = true;
+    if (animRef.current && (animRef.current as any).stop) (animRef.current as any).stop();
+  };
+
+  const handleLongPressEnd = () => {
+    pausedRef.current = false;
+    // restart animation for remaining progress
+    animRef.current = startAnimation();
+  };
 
   const handleTap = useCallback((event: any) => {
     const { locationX } = event.nativeEvent;
@@ -96,6 +116,8 @@ const Onboard = () => {
       <TouchableOpacity 
         style={StyleSheet.absoluteFillObject} 
         onPress={handleTap}
+        onLongPress={handleLongPressStart}
+        onPressOut={handleLongPressEnd}
         activeOpacity={1}
       >
         <CurrentImage
