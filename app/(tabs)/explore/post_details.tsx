@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { openMapsWithDirections } from '../../../utils/maps';
-import { db } from '../../_constants/firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
+import { useEffect, useState } from 'react';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { openMapsWithDirections } from '../../../utils/maps';
+import LoadingScreen from '../../_components/LoadingScreen';
+import { db } from '../../_constants/firebaseConfig';
 
 // Interface for the attraction data
 interface Attraction {
@@ -75,12 +76,7 @@ export default function PostDetailsScreen() {
   }, [attractionId]);
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text>Loading attraction details...</Text>
-      </View>
-    );
+    return <LoadingScreen message="Loading attraction details..." />;
   }
 
   if (!attraction) {
@@ -199,11 +195,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   headerSection: {
     padding: 16,

@@ -5,7 +5,6 @@ import { useRouter } from 'expo-router';
 import { collection, getDocs } from 'firebase/firestore';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Dimensions,
   FlatList,
@@ -18,6 +17,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import LoadingScreen from '../../_components/LoadingScreen';
 import { db } from '../../_constants/firebaseConfig';
 import Logo from '../../assets/images/LogoForOnScreen.svg';
 
@@ -119,9 +119,9 @@ const events = [
   },
 ];
 
-const EventCard = ({ event }: { event: typeof events[0] }) => {
+const EventCard = ({ event, isFirst }: { event: typeof events[0]; isFirst?: boolean }) => {
   return (
-    <View style={styles.eventCardContainer}>
+    <View style={[styles.eventCardContainer, { marginTop: isFirst ? 0 : 12 }]}> 
       <View style={styles.eventCard}>
         <Image
           source={{ uri: event.imageUrl }}
@@ -342,12 +342,7 @@ export default function NearbyScreen() {
   };
 
   if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" />
-        <Text>Finding nearby attractions...</Text>
-      </View>
-    );
+    return <LoadingScreen message="Finding nearby attractions..." />;
   }
 
   return (
@@ -397,8 +392,8 @@ export default function NearbyScreen() {
         <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
           <Text style={styles.title}>What&apos;s Happening Around!</Text>
         </View>
-        {events.map(event => (
-          <EventCard key={event.id} event={event} />
+        {events.map((event, idx) => (
+          <EventCard key={event.id} event={event} isFirst={idx === 0} />
         ))}
       </ScrollView>
     </View>
@@ -541,7 +536,7 @@ const styles = StyleSheet.create({
     color: "white",
   },
   eventCardContainer: {
-    marginTop: 24,
+    marginTop: 10,
     paddingHorizontal: 16,
   },
   eventCard: {

@@ -1,9 +1,10 @@
-import { View, ActivityIndicator, Text } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../_constants/firebaseConfig';
+import { useEffect, useState } from 'react';
+import { Text, View } from 'react-native';
 import { AttractionDetails } from '../../_components/AttractionDetails';
+import LoadingScreen from '../../_components/LoadingScreen';
+import { db } from '../../_constants/firebaseConfig';
 
 export default function DetailsScreen() {
   const params = useLocalSearchParams();
@@ -43,12 +44,7 @@ export default function DetailsScreen() {
   }, [attractionId]);
 
   if (loading) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text>Loading attraction details...</Text>
-      </View>
-    );
+    return <LoadingScreen message="Loading attraction details..." />;
   }
 
   if (!attractionData) {

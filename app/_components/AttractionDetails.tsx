@@ -14,6 +14,7 @@ import {
 import { openMapsWithDirections } from "../../utils/maps";
 
 // Import SVGs as components (svg files placed under app/assets/images/post_details)
+import ExploreSvg from "../assets/images/post_details/Explore.svg";
 import HeartSvg from "../assets/images/post_details/Heart.svg";
 import LeftArrowSvg from "../assets/images/post_details/Left Arrow.svg";
 import LocationSvg from "../assets/images/post_details/Location.svg";
@@ -81,6 +82,8 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
   const [activeIndex, setActiveIndex] = useState(0);
   // single animated value drives the current active bar (simpler & reliable)
   const currentProgressRef = useRef(new Animated.Value(0));
+  // bounce animation for scroll hint
+  const bounceAnim = useRef(new Animated.Value(0)).current;
   const currentAnimRef = useRef<Animated.CompositeAnimation | null>(null);
   const pausedRef = useRef(false);
   const pausedProgressRef = useRef<Record<number, number>>({});
@@ -99,6 +102,26 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
       currentProgressRef.current.setValue(1);
     }
   }, [imageCount]);
+
+  // Bounce animation for scroll hint
+  useEffect(() => {
+    const bounce = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounceAnim, {
+          toValue: -8,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(bounceAnim, {
+          toValue: 0,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    bounce.start();
+    return () => bounce.stop();
+  }, [bounceAnim]);
 
   // animate the active bar and advance index when complete
   useEffect(() => {
@@ -262,6 +285,11 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
           <Text style={styles.locationText}>
             {location?.city ?? location?.address ?? "Mirissa"}
           </Text>
+          {/* Inline rating next to city */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 22 }}>
+            <StarSvg width={14} height={14} />
+            <Text style={[styles.locationText, { marginLeft: 6,  }]}> {rating ? rating.toFixed(1) : '4.8'}</Text>
+          </View>
         </View>
 
         <View style={styles.peopleExploredContainerSmall}>
@@ -327,26 +355,32 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
           {description ?? `Mirissa Beach is a picturesque crescent-shaped sandy beach, known for its calm clear waters, coconut palms, and stunning sunsets.`}
         </Text>
 
-        <View style={styles.actionRowLarge}>
-          <View style={styles.topRowActions}>
-            <View style={styles.starRowLarge}>
-              <StarSvg width={20} height={20} />
-              <Text style={styles.starTextLarge}>{rating ? rating.toFixed(1) : '4.8'}</Text>
-            </View>
-            <TouchableOpacity style={styles.downInlineButton} onPress={() => {}}>
-              <LeftArrowSvg width={28} height={28} style={{ transform: [{ rotate: '-90deg' }] }} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Explore button: visible and calls onExplorePress to scroll to details */}
+        {/* Explore button: visible and calls onExplorePress to scroll to details */}
           {onExplorePress && (
             <View style={styles.exploreRowCentered}>
               <TouchableOpacity style={styles.exploreButtonLarge} onPress={onExplorePress} activeOpacity={0.9}>
-                <LeftArrowSvg width={18} height={18} style={{ transform: [{ rotate: '-90deg' }], marginRight: 8 }} />
-                <Text style={styles.exploreButtonTextLarge}>Explore</Text>
-              </TouchableOpacity>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <ExploreSvg width={28} height={28} />
+                    <Text style={[styles.exploreButtonTextLarge, { marginLeft: 10 }]}>Get Directions</Text>
+                  </View>
+                </TouchableOpacity>
             </View>
           )}
+
+        <View style={styles.actionRowLarge}>
+          <View style={styles.topRowActions}>
+            {/* <TouchableOpacity
+              style={styles.scrollHintButton}
+              onPress={onExplorePress}
+              activeOpacity={0.8}
+            > */}
+              <Animated.View style={[styles.scrollHintContent, { transform: [{ translateY: bounceAnim }] }]}>
+                <Text style={styles.scrollHintText}>Swipe up for details</Text>
+                <Text style={styles.scrollHintArrow}>↑</Text>
+              </Animated.View>
+            {/* </TouchableOpacity> */}
+          </View>
+
         </View>
       </LinearGradient>
     </View>
@@ -586,7 +620,6 @@ const styles = StyleSheet.create({
   },
   peopleExploredText: { color: "white", fontSize: 13, fontFamily: "Poppins-Regular"  },
   peopleCount: { color: "white", fontSize: 13, fontFamily: "Poppins-SemiBold"  },
-  /* avatarContainerSmall replaced below with updated definition */
   avatarContainerSmall: {
     flexDirection: "row",
     marginLeft: 12,
@@ -634,19 +667,49 @@ const styles = StyleSheet.create({
     color: "white",
     fontFamily: "Poppins-Regular",
     fontSize: 13,
-    lineHeight: 24,
+    lineHeight: 20,
     opacity: 0.95,
   },
   actionRowLarge: {
     flexDirection: 'column',
-    alignItems: 'stretch',
+    alignItems: 'center',
     justifyContent: 'flex-start',
-    marginTop: 5,
   },
   topRowActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  exploreRowCentered: { marginTop: 12, alignItems: 'center' },
+  exploreRowCentered: { marginTop:25, alignItems: 'center' },
   leftActionRow: { flexDirection: 'row', alignItems: 'center' },
-  downInlineButton: { marginLeft: 12, padding: 6, borderRadius: 20, backgroundColor: 'transparent' },
+  scrollHintButton: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    backgroundColor: 'rgba(255,255,255,0.15)', 
+    paddingVertical: 8, 
+    paddingHorizontal: 14, 
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+    marginTop: 10,
+  },
+  scrollHintContent: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    marginTop: 15,
+    marginBottom: -3,
+  },
+  scrollHintText: { 
+    color: 'white', 
+    fontSize: 9, 
+    fontFamily: 'Poppins-Regular',
+    marginRight: 6,
+  },
+  scrollHintArrow: { 
+    color: 'white', 
+    fontSize: 12, 
+    fontWeight: 'bold',
+  },
   starRowLarge: { flexDirection: "row", alignItems: "center" },
   starTextLarge: { color: "white", marginLeft: 8, fontWeight: "700" },
   exploreButtonLarge: {
@@ -658,6 +721,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     minWidth: 320,
     justifyContent: "center",
+    marginTop: -14,
   },
   exploreButtonTextLarge: {
     color: "white",
@@ -665,10 +729,9 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     fontSize: 16,
   },
-  /* removed absolute downButton; arrow is inline now */
 
   headerSection: { padding: 16, backgroundColor: "#f8f8f8" },
-  title: { fontSize: 24, fontWeight: "bold", color: "#333", marginBottom: 8 },
+  title: { fontSize: 24, fontFamily: "Poppins-SemiBold", color: "#333", marginBottom: 8 },
   rating: { fontSize: 16, color: "#666", marginBottom: 4 },
   imageContainer: { height: 200, marginVertical: 16 },
   image: { width: 300, height: 200, marginHorizontal: 8, borderRadius: 8 },
@@ -702,5 +765,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     elevation: 2,
   },
-  directionsButtonText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
+  directionsButtonText: { color: "#fff", fontSize: 16 , fontFamily: "Poppins-SemiBold"},
 });

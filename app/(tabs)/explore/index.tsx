@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, Button, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Alert, Button, FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 // 🔑 Import the Firestore database instance (Adjust path as necessary)
-import { db } from '../../_constants/firebaseConfig';
 import { collection, getDocs } from 'firebase/firestore';
+import LoadingScreen from '../../_components/LoadingScreen';
+import { db } from '../../_constants/firebaseConfig';
 
 // Interfaces for the attraction data structure
 interface Guideline {
@@ -189,12 +190,7 @@ export default function HomeScreen() {
 
   // --- Main Component Return ---
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0000ff" />
-        <Text>Loading Attractions...</Text>
-      </View>
-    );
+    return <LoadingScreen message="Loading Attractions..." />;
   }
   
   if (attractions.length === 0) {
