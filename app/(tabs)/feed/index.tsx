@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { Link } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { LinearGradient } from 'expo-linear-gradient';
 import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore';
@@ -139,34 +140,36 @@ export default function Feed() {
         {posts.filter((p) => p.featured).map((p) => {
           const badgeColor = categories.find((c) => c.key === p.category)?.color || '#85cc16';
           return (
-            <View key={p.id} style={styles.peraheraCard}>
-              <Image source={{ uri: p.image }} style={styles.peraheraImage} />
-              <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.7)']}
-                start={{ x: 0.5, y: 0 }}
-                end={{ x: 0.5, y: 1 }}
-                style={styles.gradient}
-              />
-              <View style={[styles.trendingBadge, { backgroundColor: badgeColor }]}>
-                <Text style={styles.trendingText}>{p.category}</Text>
-              </View>
-
-              {/* top-right overlay for time and likes */}
-              <View style={styles.topRightOverlay}>
-                <View style={styles.topRightItem}>
-                  <Ionicons name="time-outline" size={14} color="white" />
-                  <Text style={styles.topRightText}>{timeAgo(p.uploadedAt)}</Text>
+            <Link key={p.id} href={{ pathname: '/feed/post_details', params: { postId: p.id } }} asChild>
+              <TouchableOpacity style={styles.peraheraCard}>
+                <Image source={{ uri: p.image }} style={styles.peraheraImage} />
+                <LinearGradient
+                  colors={['transparent', 'rgba(0,0,0,0.7)']}
+                  start={{ x: 0.5, y: 0 }}
+                  end={{ x: 0.5, y: 1 }}
+                  style={styles.gradient}
+                />
+                <View style={[styles.trendingBadge, { backgroundColor: badgeColor }]}>
+                  <Text style={styles.trendingText}>{p.category}</Text>
                 </View>
-                <View style={styles.topRightItem}>
-                  <Heart width={14} height={14} color="white" />
-                  <Text style={styles.topRightText}>{p.likes ?? ''}</Text>
-                </View>
-              </View>
 
-              <View style={styles.cardInfo}>
-                <Text style={styles.peraheraText}>{p.title}</Text>
-              </View>
-            </View>
+                {/* top-right overlay for time and likes */}
+                <View style={styles.topRightOverlay}>
+                  <View style={styles.topRightItem}>
+                    <Ionicons name="time-outline" size={14} color="white" />
+                    <Text style={styles.topRightText}>{timeAgo(p.uploadedAt)}</Text>
+                  </View>
+                  <View style={styles.topRightItem}>
+                    <Heart width={14} height={14} color="white" />
+                    <Text style={styles.topRightText}>{p.likes ?? ''}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardInfo}>
+                  <Text style={styles.peraheraText}>{p.title}</Text>
+                </View>
+              </TouchableOpacity>
+            </Link>
           );
         })}
       </ScrollView>
@@ -189,21 +192,23 @@ export default function Feed() {
       </ScrollView>
 
       {filteredPosts.map((post) => (
-        <View key={post.id} style={styles.festivalCard}>
-          <Image source={{ uri: post.image }} style={styles.festivalImage} />
-          <Text style={styles.festivalTitle}>{post.title}</Text>
-          <Text style={styles.festivalDescription}>{post.description ?? 'Don’t miss the latest updates. Tap to read more.'}</Text>
-          <View style={styles.festivalInfo}>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                <Ionicons name="time-outline" size={12} color="black" />
-                <Text style={styles.festivalInfoText}>{timeAgo(post.uploadedAt)}</Text>
+        <Link key={post.id} href={{ pathname: '/feed/post_details', params: { postId: post.id } }} asChild>
+          <TouchableOpacity style={styles.festivalCard}>
+            <Image source={{ uri: post.image }} style={styles.festivalImage} />
+            <Text style={styles.festivalTitle}>{post.title}</Text>
+            <Text style={styles.festivalDescription}>{post.description ?? 'Don’t miss the latest updates. Tap to read more.'}</Text>
+            <View style={styles.festivalInfo}>
+              <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <Ionicons name="time-outline" size={12} color="black" />
+                  <Text style={styles.festivalInfoText}>{timeAgo(post.uploadedAt)}</Text>
+              </View>
+              <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                  <Heart width={12} height={12} color="black" />
+                  <Text style={styles.festivalInfoText}>{post.likes ?? ''}</Text>
+              </View>
             </View>
-            <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                <Heart width={12} height={12} color="black" />
-                <Text style={styles.festivalInfoText}>{post.likes ?? ''}</Text>
-            </View>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </Link>
       ))}
 
     </ScrollView>
