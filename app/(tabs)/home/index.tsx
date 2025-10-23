@@ -51,7 +51,7 @@ interface Attraction {
 
 const { width } = Dimensions.get('window');
 
-const Header = () => (
+const Header = ({ onPressUsers }: { onPressUsers: () => void }) => (
   <View style={{ backgroundColor: 'black', height: width * 0.38, paddingHorizontal: width * 0.05, justifyContent: 'center' }}>
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: width * 0.1 }}>
       <TouchableOpacity>
@@ -60,8 +60,8 @@ const Header = () => (
       <View style={{ flex: 1, alignItems: 'center' }}>
         <Logo width={width * 0.22} height={width * 0.1} />
       </View>
-      <TouchableOpacity>
-        <FontAwesome5 name="user-friends" size={width * 0.045} color="white" />
+      <TouchableOpacity onPress={onPressUsers} accessibilityLabel="Open social page">
+        <FontAwesome5 name="users" size={width * 0.045} color="white" />
       </TouchableOpacity>
     </View>
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: width * 0.05 }}>
@@ -350,7 +350,7 @@ export default function NearbyScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: 'black' }}>
       <StatusBar barStyle="light-content" />
-      <Header />
+  <Header onPressUsers={() => router.push({ pathname: '/screens/Social' })} />
       <ScrollView style={{ flex: 1, backgroundColor: 'white', borderTopLeftRadius: 26.5, borderTopRightRadius: 26.5, overflow: 'hidden' }} contentContainerStyle={{ paddingBottom: 100 }}>
           <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
           <Text style={styles.title}>Nearby Attractions</Text>
