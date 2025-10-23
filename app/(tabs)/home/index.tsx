@@ -9,6 +9,7 @@ import {
   Dimensions,
   FlatList,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StatusBar,
@@ -167,6 +168,7 @@ export default function NearbyScreen() {
     longitude: 79.861244
   });
   const [selectedDistance, setSelectedDistance] = useState(maxDistance);
+  const [distanceModalVisible, setDistanceModalVisible] = useState(false);
 
   // Calculate distance between two coordinates using Haversine formula
   const calculateDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number): number => {
@@ -350,23 +352,12 @@ export default function NearbyScreen() {
       <StatusBar barStyle="light-content" />
       <Header />
       <ScrollView style={{ flex: 1, backgroundColor: 'white', borderTopLeftRadius: 26.5, borderTopRightRadius: 26.5, overflow: 'hidden' }} contentContainerStyle={{ paddingBottom: 100 }}>
-        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
+          <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
           <Text style={styles.title}>Nearby Attractions</Text>
           <View style={styles.filterContainer}>
             <Pressable
               style={[styles.filterButton, styles.combinedFilterButton, { backgroundColor: '#f0f0f0' }]}
-              onPress={() => {
-                Alert.alert('Change Distance', 'Select a distance', [
-                  { text: '10 km', onPress: () => handleDistanceChange(10) },
-                  { text: '25 km', onPress: () => handleDistanceChange(25) },
-                  { text: '50 km', onPress: () => handleDistanceChange(50) },
-                  { text: '100 km', onPress: () => handleDistanceChange(100) },
-                  { text: '200 km', onPress: () => handleDistanceChange(200) },
-                  { text: '300 km', onPress: () => handleDistanceChange(300) },
-                  { text: '500 km', onPress: () => handleDistanceChange(500) },
-                  { text: 'Cancel', style: 'cancel' },
-                ]);
-              }}
+              onPress={() => setDistanceModalVisible(true)}
             >
               <Text style={[styles.filterButtonText, { color: '#000' }]}>{selectedDistance} km</Text>
               <FontAwesome5 name="sort" size={16} color="#000" style={{ marginLeft: 5 }} />
@@ -388,6 +379,34 @@ export default function NearbyScreen() {
             showsHorizontalScrollIndicator={false}
           />
         )}
+
+        {/* Distance selection modal (cross-platform) */}
+        <Modal
+          visible={distanceModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setDistanceModalVisible(false)}
+        >
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+            <View style={{ width: '85%', backgroundColor: '#fff', borderRadius: 12, padding: 12 }}>
+              {[10, 25, 50, 100, 200, 300, 500].map((d) => (
+                <TouchableOpacity
+                  key={d}
+                  style={{ paddingVertical: 12, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: '#eee' }}
+                  onPress={() => { handleDistanceChange(d); setDistanceModalVisible(false); }}
+                >
+                  <Text style={{ fontSize: 16 }}>{d} km</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                style={{ paddingVertical: 12, paddingHorizontal: 8, alignItems: 'center' }}
+                onPress={() => setDistanceModalVisible(false)}
+              >
+                <Text style={{ fontSize: 16, color: '#666' }}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }]}>
           <Text style={styles.title}>What&apos;s Happening Around!</Text>
@@ -537,11 +556,9 @@ const styles = StyleSheet.create({
   },
   eventCardContainer: {
     marginTop: 10,
-    paddingHorizontal: 16,
   },
   eventCard: {
     height: 150,
-    borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: '#000',
   },
