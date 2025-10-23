@@ -2,10 +2,12 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  ActionSheetIOS,
+  Alert,
   Animated,
   Dimensions,
-  findNodeHandle,
   Image,
+  Linking,
   Modal,
   Platform,
   ScrollView,
@@ -493,12 +495,142 @@ export function AttractionDetails(props: AttractionDetailsProps) {
   const viewerScrollRef = useRef<ScrollView | null>(null);
   const router = useRouter();
 
+  // Open directions in external map apps. If both Google Maps and Apple Maps are
+  // available (iOS), prompt the user to choose. On Android try Google Maps intent
+  // first and fall back to web directions.
+  const openMapsDirections = async () => {
+    if (!location?.coordinates) {
+      Alert.alert("Location unavailable", "This attraction does not have coordinates.");
+      return;
+    }
+    const { latitude, longitude } = location.coordinates;
+    const label = encodeURIComponent(name || "Destination");
+    // Helper to open URLs safely with a fallback alert
+    const tryOpen = async (url: string) => {
+      try {
+        await Linking.openURL(url);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    // iOS: offer a chooser when both Google Maps and Apple Maps exist. Also persist a preference to avoid prompting repeatedly.
+    if (Platform.OS === "ios") {
+      const googleScheme = `comgooglemaps://?daddr=${latitude},${longitude}&directionsmode=driving`;
+      const appleUrl = `http://maps.apple.com/?daddr=${latitude},${longitude}&dirflg=d`;
+
+      // First ask the user which app they'd like to use (Google or Apple).
+      // After they choose, ask whether to open this time or always use that app.
+      // Persist choice when requested via dynamic AsyncStorage import.
+      const primaryOptions = ['Google Maps', 'Apple Maps', 'Cancel'];
+      const CANCEL_INDEX = 2;
+
+      const handleChoiceAndOpen = async (chosen: 'google' | 'apple') => {
+        // Secondary prompt: open this time or always use chosen app
+        const secondaryOptions = ['Open this time', `Always use ${chosen === 'google' ? 'Google Maps' : 'Apple Maps'}`, 'Cancel'];
+        const SECONDARY_CANCEL = 2;
+
+        const openSelected = async () => {
+          try {
+            if (chosen === 'google') {
+              if (!(await tryOpen(googleScheme))) {
+                if (!(await tryOpen(appleUrl))) {
+                  const web = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&destination_place_id=${label}`;
+                  if (!(await tryOpen(web))) Alert.alert('Unable to open maps', 'No map application is available.');
+                }
+              }
+            } else {
+              if (!(await tryOpen(appleUrl))) {
+                if (!(await tryOpen(googleScheme))) {
+                  const web = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&destination_place_id=${label}`;
+                  if (!(await tryOpen(web))) Alert.alert('Unable to open maps', 'No map application is available.');
+                }
+              }
+            }
+          } catch {
+            Alert.alert('Unable to open maps', 'No map application is available.');
+          }
+        };
+
+        if (Platform.OS === 'ios') {
+          ActionSheetIOS.showActionSheetWithOptions(
+            { options: secondaryOptions, cancelButtonIndex: SECONDARY_CANCEL },
+            async (idx: number) => {
+              if (idx === SECONDARY_CANCEL) return;
+              if (idx === 1) {
+                // persist preference
+                try {
+                  const mod = await import('@react-native-async-storage/async-storage');
+                  const AsyncStorageOptional = mod?.default ?? mod;
+                  if (AsyncStorageOptional && AsyncStorageOptional.setItem) {
+                    await AsyncStorageOptional.setItem('preferredMapsApp', chosen);
+                  }
+                } catch {}
+              }
+              // idx === 0 (Open this time) or idx === 1 (Always) both open now
+              await openSelected();
+            }
+          );
+        } else {
+          // Android fallback: Alert with the same options
+          Alert.alert('', `Open with ${chosen === 'google' ? 'Google Maps' : 'Apple Maps'}`, [
+            {
+              text: 'Always use',
+              onPress: async () => {
+                try {
+                  const mod = await import('@react-native-async-storage/async-storage');
+                  const AsyncStorageOptional = mod?.default ?? mod;
+                  if (AsyncStorageOptional && AsyncStorageOptional.setItem) {
+                    await AsyncStorageOptional.setItem('preferredMapsApp', chosen);
+                  }
+                } catch {}
+                await openSelected();
+              },
+            },
+            {
+              text: 'Open this time',
+              onPress: async () => {
+                await openSelected();
+              },
+            },
+            { text: 'Cancel', style: 'cancel' },
+          ]);
+        }
+      };
+
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options: primaryOptions, cancelButtonIndex: CANCEL_INDEX },
+        (buttonIndex: number) => {
+          if (buttonIndex === CANCEL_INDEX) return;
+          const chosen = buttonIndex === 0 ? 'google' : 'apple';
+          handleChoiceAndOpen(chosen);
+        }
+      );
+      return;
+    }
+
+    // Android: try google navigation intent, then fallback to web
+    const googleNav = `google.navigation:q=${latitude},${longitude}&mode=d`;
+    const web = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}`;
+    try {
+      await Linking.openURL(googleNav);
+      return;
+    } catch {
+      // fallback to web link
+      Linking.openURL(web).catch(() => {
+        Alert.alert("Unable to open maps", "No map application is available.");
+      });
+    }
+  };
+
   // local favorite state (UI-only toggle for now)
   const [favorited, setFavorited] = useState(false);
 
   // top bar overlay opacity and visibility handling
   const topBarOpacity = useRef(new Animated.Value(0)).current;
   const topBarVisibleRef = useRef(false);
+  const [topBarVisible, setTopBarVisible] = useState(false);
   // compute threshold so the overlay appears when the cover/header is scrolled up
   const TOP_INSET = Platform.OS === "ios" ? 44 : StatusBar.currentHeight || 0;
   const HEADER_HEIGHT = 844; // matches styles.headerImage height
@@ -509,6 +641,8 @@ export function AttractionDetails(props: AttractionDetailsProps) {
     const shouldShow = y > SCROLL_THRESHOLD;
     if (shouldShow !== topBarVisibleRef.current) {
       topBarVisibleRef.current = shouldShow;
+      // update state so pointerEvents updates and re-renders
+      setTopBarVisible(shouldShow);
       Animated.timing(topBarOpacity, {
         toValue: shouldShow ? 1 : 0,
         duration: 180,
@@ -517,25 +651,7 @@ export function AttractionDetails(props: AttractionDetailsProps) {
     }
   };
 
-  const handleExplorePress = () => {
-    const scrollNode = scrollViewRef.current
-      ? findNodeHandle(scrollViewRef.current)
-      : null;
-    const detailsNode = detailsViewRef.current
-      ? findNodeHandle(detailsViewRef.current)
-      : null;
-
-    if (!scrollNode || !detailsNode) return;
-
-    // @ts-ignore measureLayout exists on native component instances
-    (detailsViewRef.current as any).measureLayout(
-      scrollNode,
-      (x: number, y: number) => {
-        scrollViewRef.current?.scrollTo({ y, animated: true });
-      },
-      () => {}
-    );
-  };
+  // (previously used to scroll to details; replaced by openMapsDirections for Get Directions)
 
   // When modal opens, ensure the viewer scrolls to the requested index
   useEffect(() => {
@@ -550,6 +666,81 @@ export function AttractionDetails(props: AttractionDetailsProps) {
     return () => clearTimeout(t);
   }, [modalVisible, viewerIndex]);
 
+  // Handle thumbnail press with optional persistence ('Always open viewer' vs 'Open this time')
+  const handleThumbPress = async (idx: number) => {
+    // Try to read stored preference first
+    try {
+      const mod = await import('@react-native-async-storage/async-storage');
+      const AsyncStorageOptional = mod?.default ?? mod;
+      if (AsyncStorageOptional && AsyncStorageOptional.getItem) {
+        const pref = await AsyncStorageOptional.getItem('galleryOpenPreference');
+        if (pref === 'always') {
+          setViewerIndex(idx);
+          setModalVisible(true);
+          return;
+        }
+      }
+    } catch {
+      // ignore if AsyncStorage not available
+    }
+
+    // No stored preference — prompt the user
+    if (Platform.OS === 'ios') {
+      const options = ['Always open viewer', 'Open this time', 'Cancel'];
+      const CANCEL_INDEX = 2;
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, cancelButtonIndex: CANCEL_INDEX },
+        async (buttonIndex: number) => {
+          if (buttonIndex === CANCEL_INDEX) return;
+          if (buttonIndex === 0) {
+            // Always open viewer: try to persist
+            try {
+              const mod = await import('@react-native-async-storage/async-storage');
+              const AsyncStorageOptional = mod?.default ?? mod;
+              if (AsyncStorageOptional && AsyncStorageOptional.setItem) {
+                await AsyncStorageOptional.setItem('galleryOpenPreference', 'always');
+              }
+            } catch {
+              // ignore
+            }
+            setViewerIndex(idx);
+            setModalVisible(true);
+          } else if (buttonIndex === 1) {
+            // Open this time
+            setViewerIndex(idx);
+            setModalVisible(true);
+          }
+        }
+      );
+    } else {
+      // Android / fallback: simple Alert with two choices
+      Alert.alert('', 'Open photos', [
+        {
+          text: 'Always open viewer',
+          onPress: async () => {
+            try {
+              const mod = await import('@react-native-async-storage/async-storage');
+              const AsyncStorageOptional = mod?.default ?? mod;
+              if (AsyncStorageOptional && AsyncStorageOptional.setItem) {
+                await AsyncStorageOptional.setItem('galleryOpenPreference', 'always');
+              }
+            } catch {}
+            setViewerIndex(idx);
+            setModalVisible(true);
+          },
+        },
+        {
+          text: 'Open this time',
+          onPress: () => {
+            setViewerIndex(idx);
+            setModalVisible(true);
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
+  };
+
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
@@ -562,7 +753,7 @@ export function AttractionDetails(props: AttractionDetailsProps) {
         scrollEventThrottle={16}
       >
         <AttractionHeader
-          onExplorePress={handleExplorePress}
+          onExplorePress={openMapsDirections}
           name={name}
           description={description}
           images={images}
@@ -591,24 +782,21 @@ export function AttractionDetails(props: AttractionDetailsProps) {
             <View style={styles.gallerySection}>
               <Text style={styles.galleryTitle}>Photos</Text>
               <View style={styles.galleryRow}>
-                {images.slice(0, 3).map((uri, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    activeOpacity={0.9}
-                    style={styles.thumbWrap}
-                    onPress={() => {
-                      setViewerIndex(idx);
-                      setModalVisible(true);
-                    }}
-                  >
-                    <Image source={{ uri }} style={styles.thumbImage} />
-                    {idx === 2 && images.length > 3 && (
-                      <View style={styles.moreOverlay} pointerEvents="none">
-                        <Text style={styles.moreText}>+{images.length - 3}</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                ))}
+                      {images.slice(0, 2).map((uri, idx) => (
+                        <TouchableOpacity
+                          key={idx}
+                          activeOpacity={0.9}
+                          style={styles.thumbWrap}
+                          onPress={() => handleThumbPress(idx)}
+                        >
+                          <Image source={{ uri }} style={styles.thumbImage} />
+                          {idx === 1 && images.length > 2 && (
+                            <View style={styles.moreOverlay} pointerEvents="none">
+                              <Text style={styles.moreText}>+{images.length - 2}</Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      ))}
               </View>
             </View>
           )}
@@ -670,10 +858,12 @@ export function AttractionDetails(props: AttractionDetailsProps) {
       >
         <View style={styles.modalContainer}>
           <TouchableOpacity
-            style={styles.modalClose}
+            style={[styles.modalClose, { right: 20 }]}
             onPress={() => setModalVisible(false)}
           >
-            <Text style={{ color: "#fff", fontSize: 16 }}>Close</Text>
+            <View style={styles.coverIconWrapper}>
+              <LeftArrowSvg width={20} height={20} fill={"#fff"} />
+            </View>
           </TouchableOpacity>
           <ScrollView
             ref={viewerScrollRef}
@@ -710,7 +900,7 @@ export function AttractionDetails(props: AttractionDetailsProps) {
 
       {/* Overlay top bar that appears after scrolling */}
       <Animated.View
-        pointerEvents={topBarVisibleRef.current ? "auto" : "none"}
+        pointerEvents={topBarVisible ? "auto" : "none"}
         style={[
           styles.topBarOverlay,
           { opacity: topBarOpacity, height: TOP_INSET + 56, justifyContent: "flex-end" },
@@ -718,17 +908,17 @@ export function AttractionDetails(props: AttractionDetailsProps) {
       >
         {/* inner bar sits at the bottom of the overlay area so nothing above it shows as empty */}
         <View style={[styles.topBar, { paddingVertical: 8 }]}> 
-          <TouchableOpacity style={[styles.iconButton, styles.overlayIcon]} onPress={() => router.back()}>
-            <LeftArrowSvg width={20} height={20} fill={"#111"} />
+          <TouchableOpacity style={[styles.coverIconWrapper]} onPress={() => router.back()}>
+            <LeftArrowSvg width={20} height={20} fill={"#fff"} />
           </TouchableOpacity>
           <Text style={styles.topBarTitle} numberOfLines={1} ellipsizeMode="tail">
             {name}
           </Text>
           <TouchableOpacity
-            style={[styles.iconButton, styles.overlayIcon]}
+            style={[styles.coverIconWrapper]}
             onPress={() => setFavorited((v) => !v)}
           >
-            <HeartSvg width={20} height={20} fill={favorited ? "#ff3366" : "#111"} />
+            <HeartSvg width={20} height={20} fill={favorited ? "#ff3366" : "#fff"} />
           </TouchableOpacity>
         </View>
       </Animated.View>
