@@ -1,17 +1,20 @@
 import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Dimensions,
+  findNodeHandle,
   Image,
+  Modal,
+  Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  findNodeHandle,
 } from "react-native";
-import { openMapsWithDirections } from "../../utils/maps";
 
 // Import SVGs as components (svg files placed under app/assets/images/post_details)
 import ExploreSvg from "../assets/images/post_details/Explore.svg";
@@ -63,6 +66,9 @@ type AttractionHeaderProps = Partial<
   >
 > & {
   onExplorePress?: () => void;
+  onBack?: () => void;
+  onToggleFavorite?: () => void;
+  favorited?: boolean;
 };
 
 const AttractionHeader: React.FC<AttractionHeaderProps> = ({
@@ -73,8 +79,12 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
   location,
   rating,
   reviewCount,
+  onBack,
+  onToggleFavorite,
+  favorited,
 }) => {
-
+  // dynamic top inset to account for notch / dynamic island on iOS
+  const DEFAULT_TOP_INSET = Platform.OS === "ios" ? 44 : StatusBar.currentHeight || 0;
   const avatarSources = images && images.length > 0 ? images.slice(0, 5) : [];
 
   // Animated progress for images: activeIndex controls which image is shown
@@ -91,7 +101,8 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
   // reset state when images length changes (reset animation)
   useEffect(() => {
     // stop any existing animation
-    if (currentAnimRef.current && (currentAnimRef.current as any).stop) (currentAnimRef.current as any).stop();
+    if (currentAnimRef.current && (currentAnimRef.current as any).stop)
+      (currentAnimRef.current as any).stop();
     currentProgressRef.current.setValue(0);
     setActiveIndex(0);
     // reset paused state/progress to avoid stale values causing immediate completion
@@ -136,8 +147,15 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
       currentProgressRef.current.setValue(resumeFrom);
       const remainingRatio = Math.max(0, 1 - resumeFrom);
       const minDuration = 200;
-      const dur = Math.max(minDuration, Math.round(remainingRatio * durationMs));
-      currentAnimRef.current = Animated.timing(currentProgressRef.current, { toValue: 1, duration: dur, useNativeDriver: false });
+      const dur = Math.max(
+        minDuration,
+        Math.round(remainingRatio * durationMs)
+      );
+      currentAnimRef.current = Animated.timing(currentProgressRef.current, {
+        toValue: 1,
+        duration: dur,
+        useNativeDriver: false,
+      });
       currentAnimRef.current.start(() => {
         if (!running) return;
         delete pausedProgressRef.current[index];
@@ -155,7 +173,7 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
     let startTimer: ReturnType<typeof setTimeout> | null = null;
     const startNow = () => animateIndex(activeIndex);
     // try rAF first for smoother start, fallback to timeout
-    if (typeof requestAnimationFrame === 'function') {
+    if (typeof requestAnimationFrame === "function") {
       requestAnimationFrame(() => {
         startTimer = setTimeout(startNow, startDelay);
       });
@@ -165,7 +183,8 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
 
     return () => {
       running = false;
-      if (currentAnimRef.current && (currentAnimRef.current as any).stop) (currentAnimRef.current as any).stop();
+      if (currentAnimRef.current && (currentAnimRef.current as any).stop)
+        (currentAnimRef.current as any).stop();
       if (startTimer) clearTimeout(startTimer);
     };
   }, [activeIndex, imageCount]);
@@ -179,7 +198,8 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
         pausedProgressRef.current[activeIndex] = val || 0;
       });
     }
-    if (currentAnimRef.current && (currentAnimRef.current as any).stop) (currentAnimRef.current as any).stop();
+    if (currentAnimRef.current && (currentAnimRef.current as any).stop)
+      (currentAnimRef.current as any).stop();
   };
 
   const resumeAnimation = () => {
@@ -190,7 +210,11 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
     cur.setValue(val);
     const remaining = Math.max(0, 1 - val);
     if (remaining <= 0) return;
-    currentAnimRef.current = Animated.timing(cur, { toValue: 1, duration: Math.round(remaining * 6000), useNativeDriver: false });
+    currentAnimRef.current = Animated.timing(cur, {
+      toValue: 1,
+      duration: Math.round(remaining * 6000),
+      useNativeDriver: false,
+    });
     currentAnimRef.current.start(() => {
       delete pausedProgressRef.current[activeIndex];
       if (activeIndex < imageCount - 1) {
@@ -202,26 +226,29 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
   };
 
   // Tap handlers (left/right) and hold-to-pause for the cover
-  const { width: screenWidth } = Dimensions.get('window');
+  const { width: screenWidth } = Dimensions.get("window");
   const handleCoverTap = (event: any) => {
     const { locationX } = event.nativeEvent;
     if (locationX < screenWidth / 2) {
       // go to previous
       const prev = Math.max(0, activeIndex - 1);
       // stop current animation and reset progress
-      if (currentAnimRef.current && (currentAnimRef.current as any).stop) (currentAnimRef.current as any).stop();
+      if (currentAnimRef.current && (currentAnimRef.current as any).stop)
+        (currentAnimRef.current as any).stop();
       currentProgressRef.current.setValue(0);
       setActiveIndex(prev);
     } else {
       // go to next (if not last)
       const next = Math.min(imageCount - 1, activeIndex + 1);
-      if (currentAnimRef.current && (currentAnimRef.current as any).stop) (currentAnimRef.current as any).stop();
+      if (currentAnimRef.current && (currentAnimRef.current as any).stop)
+        (currentAnimRef.current as any).stop();
       currentProgressRef.current.setValue(0);
       setActiveIndex(next);
     }
   };
 
-  const coverUri = images && images.length > 0 ? images[activeIndex] : undefined;
+  const coverUri =
+    images && images.length > 0 ? images[activeIndex] : undefined;
 
   return (
     <View style={styles.headerImage}>
@@ -236,7 +263,11 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
         onPressOut={() => resumeAnimation()}
       >
         {coverUri ? (
-          <Image source={{ uri: coverUri }} style={styles.coverSvg} resizeMode="cover" />
+          <Image
+            source={{ uri: coverUri }}
+            style={styles.coverSvg}
+            resizeMode="cover"
+          />
         ) : (
           <MirissaSvg
             width={"100%"}
@@ -247,21 +278,27 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
         )}
       </TouchableOpacity>
 
-  {/* full-cover gradient to darken the image progressively */}
-  <LinearGradient
-    colors={["rgba(0,0,0,0.10)", "rgba(0,0,0,0.70)"]}
-    start={{ x: 0.5, y: 0 }}
-    end={{ x: 0.5, y: 1 }}
-    style={styles.coverGradient}
-    pointerEvents="none"
-  />
+      {/* full-cover gradient to darken the image progressively */}
+      <LinearGradient
+        colors={["rgba(0,0,0,0.10)", "rgba(0,0,0,0.70)"]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={styles.coverGradient}
+        pointerEvents="none"
+      />
 
-  <View style={styles.topIcons} pointerEvents="box-none">
-        <TouchableOpacity style={styles.iconButton} onPress={() => {}}>
-          <LeftArrowSvg width={20} height={20} />
+      <View style={[styles.topIcons, { top: DEFAULT_TOP_INSET + 12 }]} pointerEvents="box-none">
+        <TouchableOpacity style={[styles.coverIconWrapper]} onPress={onBack}>
+          <LeftArrowSvg width={20} height={20} fill={"#fff"} />
         </TouchableOpacity>
-        <TouchableOpacity style={styles.iconButton} onPress={() => {}}>
-          <HeartSvg width={20} height={20} />
+        <TouchableOpacity
+          style={[
+            styles.coverIconWrapper,
+            favorited ? { backgroundColor: "rgba(255,255,255,0.12)" } : undefined,
+          ]}
+          onPress={onToggleFavorite}
+        >
+          <HeartSvg width={20} height={20} fill={favorited ? "#ff3366" : "#fff"} />
         </TouchableOpacity>
       </View>
 
@@ -286,20 +323,35 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
             {location?.city ?? location?.address ?? "Mirissa"}
           </Text>
           {/* Inline rating next to city */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: 22 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              marginLeft: 22,
+            }}
+          >
             <StarSvg width={14} height={14} />
-            <Text style={[styles.locationText, { marginLeft: 6,  }]}> {rating ? rating.toFixed(1) : '4.8'}</Text>
+            <Text style={[styles.locationText, { marginLeft: 6 }]}>
+              {" "}
+              {rating ? rating.toFixed(1) : "4.8"}
+            </Text>
           </View>
         </View>
 
         <View style={styles.peopleExploredContainerSmall}>
           <Text style={styles.peopleExploredText}>
-            <Text style={styles.peopleCount}>{
-              reviewCount && reviewCount >= 100 ? `${Math.floor(reviewCount / 10) * 10}+` : (reviewCount ?? "100+")
-            }</Text>{' '}people have explored
+            <Text style={styles.peopleCount}>
+              {reviewCount && reviewCount >= 100
+                ? `${Math.floor(reviewCount / 10) * 10}+`
+                : (reviewCount ?? "100+")}
+            </Text>{" "}
+            people have explored
           </Text>
           <View style={styles.avatarContainerSmall}>
-            {(avatarSources.length > 0 ? avatarSources : [undefined, undefined, undefined, undefined, undefined]).map((src, idx) => {
+            {(avatarSources.length > 0
+              ? avatarSources
+              : [undefined, undefined, undefined, undefined, undefined]
+            ).map((src, idx) => {
               const size = 30;
               return (
                 <View
@@ -316,7 +368,14 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
                   ]}
                 >
                   {src ? (
-                    <Image source={{ uri: src }} style={{ width: '100%', height: '100%', borderRadius: size / 2 }} />
+                    <Image
+                      source={{ uri: src }}
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        borderRadius: size / 2,
+                      }}
+                    />
                   ) : (
                     <VerificationSvg width={16} height={16} />
                   )}
@@ -332,13 +391,22 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
             {Array.from({ length: Math.max(1, imageCount) }).map((_, idx) => (
               <View key={idx} style={styles.progressBarBackgroundSmall}>
                 {/* completed */}
-                {idx < activeIndex && <View style={[styles.progressBarFilledSmall, { width: '100%' }]} />}
+                {idx < activeIndex && (
+                  <View
+                    style={[styles.progressBarFilledSmall, { width: "100%" }]}
+                  />
+                )}
                 {/* current active */}
                 {idx === activeIndex && (
                   <Animated.View
                     style={[
                       styles.progressBarFilledSmall,
-                      { width: currentProgressRef.current.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) } as any,
+                      {
+                        width: currentProgressRef.current.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: ["0%", "100%"],
+                        }),
+                      } as any,
                     ]}
                   />
                 )}
@@ -347,25 +415,36 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
             ))}
           </View>
           <View style={styles.countPill}>
-            <Text style={styles.countPillText}>{(images && images.length) || 0}</Text>
+            <Text style={styles.countPillText}>
+              {(images && images.length) || 0}
+            </Text>
           </View>
         </View>
 
         <Text style={styles.beachDescription} numberOfLines={6}>
-          {description ?? `Mirissa Beach is a picturesque crescent-shaped sandy beach, known for its calm clear waters, coconut palms, and stunning sunsets.`}
+          {description ??
+            `Mirissa Beach is a picturesque crescent-shaped sandy beach, known for its calm clear waters, coconut palms, and stunning sunsets.`}
         </Text>
 
         {/* Explore button: visible and calls onExplorePress to scroll to details */}
-          {onExplorePress && (
-            <View style={styles.exploreRowCentered}>
-              <TouchableOpacity style={styles.exploreButtonLarge} onPress={onExplorePress} activeOpacity={0.9}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <ExploreSvg width={28} height={28} />
-                    <Text style={[styles.exploreButtonTextLarge, { marginLeft: 10 }]}>Get Directions</Text>
-                  </View>
-                </TouchableOpacity>
-            </View>
-          )}
+        {onExplorePress && (
+          <View style={styles.exploreRowCentered}>
+            <TouchableOpacity
+              style={styles.exploreButtonLarge}
+              onPress={onExplorePress}
+              activeOpacity={0.9}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <ExploreSvg width={28} height={28} />
+                <Text
+                  style={[styles.exploreButtonTextLarge, { marginLeft: 10 }]}
+                >
+                  Get Directions
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <View style={styles.actionRowLarge}>
           <View style={styles.topRowActions}>
@@ -374,13 +453,17 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
               onPress={onExplorePress}
               activeOpacity={0.8}
             > */}
-              <Animated.View style={[styles.scrollHintContent, { transform: [{ translateY: bounceAnim }] }]}>
-                <Text style={styles.scrollHintText}>Swipe up for details</Text>
-                <Text style={styles.scrollHintArrow}>↑</Text>
-              </Animated.View>
+            <Animated.View
+              style={[
+                styles.scrollHintContent,
+                { transform: [{ translateY: bounceAnim }] },
+              ]}
+            >
+              <Text style={styles.scrollHintText}>Swipe up for details</Text>
+              <Text style={styles.scrollHintArrow}>↑</Text>
+            </Animated.View>
             {/* </TouchableOpacity> */}
           </View>
-
         </View>
       </LinearGradient>
     </View>
@@ -391,8 +474,7 @@ export function AttractionDetails(props: AttractionDetailsProps) {
   const {
     name,
     description,
-    images = [],
-    distance,
+  images = [],
     location,
     rating = 4.5,
     reviewCount = 100,
@@ -406,6 +488,34 @@ export function AttractionDetails(props: AttractionDetailsProps) {
 
   const scrollViewRef = useRef<ScrollView | null>(null);
   const detailsViewRef = useRef<View | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [viewerIndex, setViewerIndex] = useState(0);
+  const viewerScrollRef = useRef<ScrollView | null>(null);
+  const router = useRouter();
+
+  // local favorite state (UI-only toggle for now)
+  const [favorited, setFavorited] = useState(false);
+
+  // top bar overlay opacity and visibility handling
+  const topBarOpacity = useRef(new Animated.Value(0)).current;
+  const topBarVisibleRef = useRef(false);
+  // compute threshold so the overlay appears when the cover/header is scrolled up
+  const TOP_INSET = Platform.OS === "ios" ? 44 : StatusBar.currentHeight || 0;
+  const HEADER_HEIGHT = 844; // matches styles.headerImage height
+  const SCROLL_THRESHOLD = Math.max(80, HEADER_HEIGHT - (TOP_INSET + 72));
+
+  const handleScroll = (e: any) => {
+    const y = e.nativeEvent.contentOffset.y || 0;
+    const shouldShow = y > SCROLL_THRESHOLD;
+    if (shouldShow !== topBarVisibleRef.current) {
+      topBarVisibleRef.current = shouldShow;
+      Animated.timing(topBarOpacity, {
+        toValue: shouldShow ? 1 : 0,
+        duration: 180,
+        useNativeDriver: true,
+      }).start();
+    }
+  };
 
   const handleExplorePress = () => {
     const scrollNode = scrollViewRef.current
@@ -427,133 +537,225 @@ export function AttractionDetails(props: AttractionDetailsProps) {
     );
   };
 
-  return (
-    <ScrollView
-      style={styles.container}
-      ref={scrollViewRef}
-      bounces={false}
-      overScrollMode="never"
-      contentContainerStyle={styles.scrollContent}
-    >
-      <AttractionHeader
-        onExplorePress={handleExplorePress}
-        name={name}
-        description={description}
-        images={images}
-        location={location}
-        rating={rating}
-        reviewCount={reviewCount}
-      />
+  // When modal opens, ensure the viewer scrolls to the requested index
+  useEffect(() => {
+    if (!modalVisible) return;
+    const width = Dimensions.get("window").width;
+    // small delay to wait for modal layout
+    const t = setTimeout(() => {
+      if (viewerScrollRef.current) {
+        viewerScrollRef.current.scrollTo({ x: viewerIndex * width, animated: false });
+      }
+    }, 60);
+    return () => clearTimeout(t);
+  }, [modalVisible, viewerIndex]);
 
-      <View ref={detailsViewRef}>
-        <View style={styles.headerSection}>
-          <Text style={styles.title}>{name}</Text>
-          <Text style={styles.rating}>
-            ⭐ {rating} ({reviewCount} reviews)
-          </Text>
-          {distance && (
-            <Text style={styles.rating}>
-              📍{" "}
-              {typeof distance === "number"
-                ? `${distance.toFixed(1)} km away`
-                : ""}
+  return (
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        style={styles.container}
+        ref={scrollViewRef}
+        bounces={false}
+        overScrollMode="never"
+        contentContainerStyle={styles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+      >
+        <AttractionHeader
+          onExplorePress={handleExplorePress}
+          name={name}
+          description={description}
+          images={images}
+          location={location}
+          rating={rating}
+          reviewCount={reviewCount}
+          onBack={() => router.back()}
+          favorited={favorited}
+          onToggleFavorite={() => setFavorited((v) => !v)}
+        />
+
+        <View ref={detailsViewRef}>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>About</Text>
+            <Text style={styles.description}>{description}</Text>
+          </View>
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Key Information</Text>
+            <Text style={styles.infoText}>🕒 Duration: {estimatedDuration}</Text>
+            <Text style={styles.infoText}>💰 Entrance Fee: {entranceFee}</Text>
+            <Text style={styles.infoText}>⏰ Best Time: {bestTimeToVisit}</Text>
+          </View>
+
+          {images && images.length > 0 && (
+            <View style={styles.gallerySection}>
+              <Text style={styles.galleryTitle}>Photos</Text>
+              <View style={styles.galleryRow}>
+                {images.slice(0, 3).map((uri, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    activeOpacity={0.9}
+                    style={styles.thumbWrap}
+                    onPress={() => {
+                      setViewerIndex(idx);
+                      setModalVisible(true);
+                    }}
+                  >
+                    <Image source={{ uri }} style={styles.thumbImage} />
+                    {idx === 2 && images.length > 3 && (
+                      <View style={styles.moreOverlay} pointerEvents="none">
+                        <Text style={styles.moreText}>+{images.length - 3}</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          )}
+
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Location</Text>
+            <Text style={styles.infoText}>📍 {location.address}</Text>
+            <Text style={styles.infoText}>
+              🏙️ {location.city}, {location.province}
             </Text>
+          </View>
+
+          {amenities && Object.keys(amenities).length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Amenities</Text>
+              <View style={styles.amenitiesContainer}>
+                {amenities.guidedTours && (
+                  <Text style={styles.tag}>🎯 Guided Tours</Text>
+                )}
+                {amenities.parkingAvailable && (
+                  <Text style={styles.tag}>🅿️ Parking</Text>
+                )}
+                {amenities.restaurants && (
+                  <Text style={styles.tag}>🍽️ Restaurants</Text>
+                )}
+                {amenities.restrooms && (
+                  <Text style={styles.tag}>🚻 Restrooms</Text>
+                )}
+                {amenities.shops && <Text style={styles.tag}>🛍️ Shops</Text>}
+              </View>
+            </View>
+          )}
+
+          {guidelines.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Guidelines</Text>
+              {guidelines.map((guideline, index) => (
+                <Text key={index} style={styles.infoText}>
+                  • {guideline.description}
+                </Text>
+              ))}
+            </View>
+          )}
+
+          {type && (
+            <View style={[styles.section, styles.lastSection]}>
+              <Text style={styles.sectionTitle}>Type</Text>
+              <Text style={styles.infoText}>{type}</Text>
+            </View>
           )}
         </View>
+      </ScrollView>
 
-        {/* removed horizontal image strip to keep a single stable cover image */}
-        {images && images.length > 0 && (
-          <ScrollView horizontal style={styles.imageContainer}>
-            {images.map((img, index) => (
-              <Image
-                key={index}
-                source={{ uri: img }}
-                style={styles.image}
-                resizeMode="cover"
-              />
+      {/* Fullscreen modal image viewer */}
+      <Modal
+        visible={modalVisible}
+        animationType="fade"
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <TouchableOpacity
+            style={styles.modalClose}
+            onPress={() => setModalVisible(false)}
+          >
+            <Text style={{ color: "#fff", fontSize: 16 }}>Close</Text>
+          </TouchableOpacity>
+          <ScrollView
+            ref={viewerScrollRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ alignItems: "center" }}
+          >
+            {images.map((uri, i) => (
+              <View
+                key={i}
+                style={{
+                  width: Dimensions.get("window").width,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                <Image
+                  source={{ uri }}
+                  style={[
+                    styles.fullImage,
+                    {
+                      width: Dimensions.get("window").width * 0.92,
+                      height: Dimensions.get("window").height * 0.8,
+                      resizeMode: "contain",
+                    },
+                  ]}
+                />
+              </View>
             ))}
           </ScrollView>
-        )}
+        </View>
+      </Modal>
 
-        {location?.coordinates && (
-          <TouchableOpacity
-            style={styles.directionsButton}
-            onPress={() => openMapsWithDirections(location.coordinates)}
-          >
-            <Text style={styles.directionsButtonText}>🗺️ Show Directions</Text>
+      {/* Overlay top bar that appears after scrolling */}
+      <Animated.View
+        pointerEvents={topBarVisibleRef.current ? "auto" : "none"}
+        style={[
+          styles.topBarOverlay,
+          { opacity: topBarOpacity, height: TOP_INSET + 56, justifyContent: "flex-end" },
+        ]}
+      >
+        {/* inner bar sits at the bottom of the overlay area so nothing above it shows as empty */}
+        <View style={[styles.topBar, { paddingVertical: 8 }]}> 
+          <TouchableOpacity style={[styles.iconButton, styles.overlayIcon]} onPress={() => router.back()}>
+            <LeftArrowSvg width={20} height={20} fill={"#111"} />
           </TouchableOpacity>
-        )}
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
-          <Text style={styles.description}>{description}</Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Key Information</Text>
-          <Text style={styles.infoText}>🕒 Duration: {estimatedDuration}</Text>
-          <Text style={styles.infoText}>💰 Entrance Fee: {entranceFee}</Text>
-          <Text style={styles.infoText}>⏰ Best Time: {bestTimeToVisit}</Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Location</Text>
-          <Text style={styles.infoText}>📍 {location.address}</Text>
-          <Text style={styles.infoText}>
-            🏙️ {location.city}, {location.province}
+          <Text style={styles.topBarTitle} numberOfLines={1} ellipsizeMode="tail">
+            {name}
           </Text>
+          <TouchableOpacity
+            style={[styles.iconButton, styles.overlayIcon]}
+            onPress={() => setFavorited((v) => !v)}
+          >
+            <HeartSvg width={20} height={20} fill={favorited ? "#ff3366" : "#111"} />
+          </TouchableOpacity>
         </View>
-
-        {amenities && Object.keys(amenities).length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Amenities</Text>
-            <View style={styles.amenitiesContainer}>
-              {amenities.guidedTours && (
-                <Text style={styles.tag}>🎯 Guided Tours</Text>
-              )}
-              {amenities.parkingAvailable && (
-                <Text style={styles.tag}>🅿️ Parking</Text>
-              )}
-              {amenities.restaurants && (
-                <Text style={styles.tag}>🍽️ Restaurants</Text>
-              )}
-              {amenities.restrooms && (
-                <Text style={styles.tag}>🚻 Restrooms</Text>
-              )}
-              {amenities.shops && <Text style={styles.tag}>🛍️ Shops</Text>}
-            </View>
-          </View>
-        )}
-
-        {guidelines.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Guidelines</Text>
-            {guidelines.map((guideline, index) => (
-              <Text key={index} style={styles.infoText}>
-                • {guideline.description}
-              </Text>
-            ))}
-          </View>
-        )}
-
-        {type && (
-          <View style={[styles.section, styles.lastSection]}>
-            <Text style={styles.sectionTitle}>Type</Text>
-            <Text style={styles.infoText}>{type}</Text>
-          </View>
-        )}
-      </View>
-    </ScrollView>
+      </Animated.View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0b4660" },
-  scrollContent: { backgroundColor: '#fff' },
+  scrollContent: { backgroundColor: "#fff" },
   headerImage: { width: "100%", height: 844, justifyContent: "flex-end" },
   coverSvg: { position: "absolute", top: 0, left: 0, right: 0, height: 844 },
-  coverFallback: { position: 'absolute', top: 0, left: 0, right: 0, height: 844, backgroundColor: '#0b4660' },
-  coverWrapper: { position: 'absolute', top: 0, left: 0, right: 0, height: 844 },
+  coverFallback: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 844,
+    backgroundColor: "#0b4660",
+  },
+  coverWrapper: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 844,
+  },
   topIcons: {
     position: "absolute",
     top: 40,
@@ -569,7 +771,15 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
   },
+  overlayIcon: {
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    padding: 6,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.08)'
+  },
   topIcon: { width: 24, height: 24, tintColor: "white" },
+  coverIconWrapper: { backgroundColor: 'rgba(0,0,0,0.28)', padding: 8, borderRadius: 20 },
   bottomOverlay: {
     backgroundColor: "transparent",
     paddingHorizontal: 24,
@@ -579,13 +789,43 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
 
-  coverGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 844, zIndex: 2 },
-  progressAndCountRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 },
-  progressBarsContainer: { flex: 1, flexDirection: 'row', gap: 8 },
-  progressBarBackgroundSmall: { flex: 1, height: 3, backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 2, overflow: 'hidden', marginRight: 6 },
-  progressBarFilledSmall: { height: 3, backgroundColor: '#fff', borderRadius: 2, width: '0%' },
-  countPill: { backgroundColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, marginLeft: 12 },
-  countPillText: { color: 'white', fontWeight: '700' },
+  coverGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 844,
+    zIndex: 2,
+  },
+  progressAndCountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 16,
+  },
+  progressBarsContainer: { flex: 1, flexDirection: "row", gap: 8 },
+  progressBarBackgroundSmall: {
+    flex: 1,
+    height: 3,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    borderRadius: 2,
+    overflow: "hidden",
+    marginRight: 6,
+  },
+  progressBarFilledSmall: {
+    height: 3,
+    backgroundColor: "#fff",
+    borderRadius: 2,
+    width: "0%",
+  },
+  countPill: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginLeft: 12,
+  },
+  countPillText: { color: "white", fontWeight: "700" },
   tourlyRecommended: {
     color: "white",
     fontSize: 11,
@@ -606,7 +846,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   locationIcon: { width: 16, height: 16, tintColor: "white" },
-  locationText: { color: "white", marginLeft: 8, fontFamily: "Poppins-Regular" },
+  locationText: {
+    color: "white",
+    marginLeft: 8,
+    fontFamily: "Poppins-Regular",
+  },
   peopleExploredContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -618,8 +862,12 @@ const styles = StyleSheet.create({
     marginTop: 10,
     justifyContent: "space-between",
   },
-  peopleExploredText: { color: "white", fontSize: 13, fontFamily: "Poppins-Regular"  },
-  peopleCount: { color: "white", fontSize: 13, fontFamily: "Poppins-SemiBold"  },
+  peopleExploredText: {
+    color: "white",
+    fontSize: 13,
+    fontFamily: "Poppins-Regular",
+  },
+  peopleCount: { color: "white", fontSize: 13, fontFamily: "Poppins-SemiBold" },
   avatarContainerSmall: {
     flexDirection: "row",
     marginLeft: 12,
@@ -671,44 +919,48 @@ const styles = StyleSheet.create({
     opacity: 0.95,
   },
   actionRowLarge: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "flex-start",
   },
-  topRowActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  exploreRowCentered: { marginTop:25, alignItems: 'center' },
-  leftActionRow: { flexDirection: 'row', alignItems: 'center' },
-  scrollHintButton: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: 'rgba(255,255,255,0.15)', 
-    paddingVertical: 8, 
-    paddingHorizontal: 14, 
+  topRowActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  exploreRowCentered: { marginTop: 25, alignItems: "center" },
+  leftActionRow: { flexDirection: "row", alignItems: "center" },
+  scrollHintButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.15)",
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: "rgba(255,255,255,0.3)",
     marginTop: 10,
   },
   scrollHintContent: {
-    fontFamily: 'Poppins-Regular',
+    fontFamily: "Poppins-Regular",
     fontSize: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     flex: 1,
     marginTop: 15,
     marginBottom: -3,
   },
-  scrollHintText: { 
-    color: 'white', 
-    fontSize: 9, 
-    fontFamily: 'Poppins-Regular',
+  scrollHintText: {
+    color: "white",
+    fontSize: 9,
+    fontFamily: "Poppins-Regular",
     marginRight: 6,
   },
-  scrollHintArrow: { 
-    color: 'white', 
-    fontSize: 12, 
-    fontWeight: 'bold',
+  scrollHintArrow: {
+    color: "white",
+    fontSize: 12,
+    fontWeight: "bold",
   },
   starRowLarge: { flexDirection: "row", alignItems: "center" },
   starTextLarge: { color: "white", marginLeft: 8, fontWeight: "700" },
@@ -731,7 +983,19 @@ const styles = StyleSheet.create({
   },
 
   headerSection: { padding: 16, backgroundColor: "#f8f8f8" },
-  title: { fontSize: 24, fontFamily: "Poppins-SemiBold", color: "#333", marginBottom: 8 },
+  headerSectionSticky: { paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee', elevation: 3, shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 1 }, zIndex: 20 },
+  headerSectionStickyWrap: { paddingTop: 10, backgroundColor: 'transparent' },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 6, justifyContent: 'flex-start' },
+  metaPill: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f6f7f9', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 16, marginRight: 8 },
+  metaPillText: { marginLeft: 8, color: '#444', fontFamily: 'Poppins-Regular', fontSize: 13 },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 10, backgroundColor: 'transparent' },
+  topBarTitle: { fontSize: 18, fontFamily: 'Poppins-SemiBold', color: '#111', textAlign: 'center', flex: 1, marginHorizontal: 12 },
+  title: {
+    fontSize: 24,
+    fontFamily: "Poppins-SemiBold",
+    color: "#333",
+    marginBottom: 8,
+  },
   rating: { fontSize: 16, color: "#666", marginBottom: 4 },
   imageContainer: { height: 200, marginVertical: 16 },
   image: { width: 300, height: 200, marginHorizontal: 8, borderRadius: 8 },
@@ -765,5 +1029,58 @@ const styles = StyleSheet.create({
     alignItems: "center",
     elevation: 2,
   },
-  directionsButtonText: { color: "#fff", fontSize: 16 , fontFamily: "Poppins-SemiBold"},
+  directionsButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontFamily: "Poppins-SemiBold",
+  },
+  /* Gallery / viewer styles */
+  gallerySection: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 },
+  galleryTitle: {
+    fontFamily: "Poppins-SemiBold",
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 15,
+    color: "#333",
+  },
+  galleryRow: { flexDirection: "row", alignItems: "center" },
+  thumbWrap: {
+    width: 111,
+    height: 111,
+    borderRadius: 12,
+    overflow: "hidden",
+    marginRight: 12,
+    backgroundColor: "#eee",
+  },
+  thumbImage: { width: "100%", height: "100%" },
+  moreOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  moreText: { color: "white", fontSize: 18, fontWeight: "700" },
+  modalContainer: { flex: 1, backgroundColor: "#000" },
+  modalClose: { position: "absolute", top: 40, right: 20, zIndex: 20 },
+  fullImage: { width: "90%", height: "90%" },
+  topBarOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 60,
+    backgroundColor: '#fff',
+    // iOS shadow
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.07,
+    shadowRadius: 12,
+    // Android elevation
+    elevation: 6,
+  },
 });
+

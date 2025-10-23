@@ -73,7 +73,7 @@ export default function UtilsScreen() {
             onPress={() => router.push(item.route as any)}
           >
             <View style={styles.cardIcon}>
-              <Ionicons name={item.icon} size={24} color="#2196F3" />
+              <Ionicons name={item.icon} size={24} color="#85CC16" />
             </View>
             <View style={styles.cardContent}>
               <Text style={styles.cardTitle}>{item.title}</Text>
@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#e3f2fd',
+    backgroundColor: '#F3FFDF',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
