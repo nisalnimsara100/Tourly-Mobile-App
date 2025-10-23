@@ -782,21 +782,21 @@ export function AttractionDetails(props: AttractionDetailsProps) {
             <View style={styles.gallerySection}>
               <Text style={styles.galleryTitle}>Photos</Text>
               <View style={styles.galleryRow}>
-                      {images.slice(0, 2).map((uri, idx) => (
-                        <TouchableOpacity
-                          key={idx}
-                          activeOpacity={0.9}
-                          style={styles.thumbWrap}
-                          onPress={() => handleThumbPress(idx)}
-                        >
-                          <Image source={{ uri }} style={styles.thumbImage} />
-                          {idx === 1 && images.length > 2 && (
-                            <View style={styles.moreOverlay} pointerEvents="none">
-                              <Text style={styles.moreText}>+{images.length - 2}</Text>
-                            </View>
-                          )}
-                        </TouchableOpacity>
-                      ))}
+                {images.slice(0, 3).map((uri, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    activeOpacity={0.9}
+                    style={styles.thumbWrap}
+                    onPress={() => handleThumbPress(idx)}
+                  >
+                    <Image source={{ uri }} style={styles.thumbImage} />
+                    {idx === 2 && images.length > 3 && (
+                      <View style={styles.moreOverlay} pointerEvents="none">
+                        <Text style={styles.moreText}>+{images.length - 3}</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
               </View>
             </View>
           )}
