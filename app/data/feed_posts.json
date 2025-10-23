@@ -1,0 +1,74 @@
+{
+  "categories": {
+    "Trending": "#dfffad",
+    "Alerts": "#ffccd3",
+    "Weather": "#c3dbff",
+    "Transport": "#ffe2d9",
+    "Events": "#c1ffdb",
+    "Sites": "#FFC1FC",
+    "Deals": "#FFF7C1",
+    "Tips": "#D1C1FF"
+  },
+  "posts": [
+    {
+      "id": "post-2025-10-24-1",
+      "title": "Perahera Festival Tonight at 7 PM",
+      "description": "Kandy Esala Perahera — prime viewing spots along D.S. Senanayake Street. Expect road closures; arrive early.",
+      "image": "https://res.cloudinary.com/demo/image/upload/w_1200,h_700,c_fill/e_blur:100/sample.jpg",
+      "category": "Trending",
+      "featured": true,
+      "uploadedAt": "2025-10-24T12:00:00Z",
+      "likes": 571
+    },
+    {
+      "id": "post-2025-10-23-1",
+      "title": "Monsoon Watch: Heavy Rain Expected",
+      "description": "Meteorology Department issues a yellow alert for heavy showers in western and central provinces tonight. Stay safe and check travel advisories.",
+      "image": "https://res.cloudinary.com/demo/image/upload/w_1200,h_700,c_fill/e_blur:100/rain.jpg",
+      "category": "Weather",
+      "featured": false,
+      "uploadedAt": "2025-10-23T06:30:00Z",
+      "likes": 124
+    },
+    {
+      "id": "post-2025-10-22-1",
+      "title": "Live Music Night — Downtown Club",
+      "description": "Free entry live band performance with local artists. Doors open at 9pm. Limited capacity.",
+      "image": "https://res.cloudinary.com/demo/image/upload/w_1200,h_700,c_fill/e_blur:100/music.jpg",
+      "category": "Events",
+      "featured": true,
+      "uploadedAt": "2025-10-22T18:00:00Z",
+      "likes": 208
+    },
+    {
+      "id": "post-2025-10-21-1",
+      "title": "Hotel Discount — 20% Off This Weekend",
+      "description": "Selected partner hotels are offering a 20% discount for bookings made this weekend. Limited rooms — book early via the app.",
+      "image": "https://res.cloudinary.com/demo/image/upload/w_1200,h_700,c_fill/e_blur:100/hotel.jpg",
+      "category": "Deals",
+      "featured": false,
+      "uploadedAt": "2025-10-21T08:15:00Z",
+      "likes": 92
+    },
+    {
+      "id": "post-2025-10-20-1",
+      "title": "Roadworks on A2 — Expect Delays",
+      "description": "Night-time resurfacing on the A2 between km 34–42; diversion signs will be in place. Allow extra travel time if you're heading south.",
+      "image": "https://res.cloudinary.com/demo/image/upload/w_1200,h_700,c_fill/e_blur:100/road.jpg",
+      "category": "Transport",
+      "featured": false,
+      "uploadedAt": "2025-10-20T21:00:00Z",
+      "likes": 45
+    },
+    {
+      "id": "post-2025-10-19-1",
+      "title": "Parade Highlights: Photo Gallery",
+      "description": "A curated gallery from last night's parade — colors, drummers and the best floats. Tap to view the full album.",
+      "image": "https://res.cloudinary.com/demo/image/upload/w_1200,h_700,c_fill/e_blur:100/parade.jpg",
+      "category": "Trending",
+      "featured": true,
+      "uploadedAt": "2025-10-19T09:25:00Z",
+      "likes": 333
+    }
+  ]
+}

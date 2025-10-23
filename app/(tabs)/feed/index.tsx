@@ -1,241 +1,377 @@
-import { useState } from 'react';
-import { View, StyleSheet, FlatList, Text, TouchableOpacity, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
+import { LinearGradient } from 'expo-linear-gradient';
+import { collection, doc, getDoc, getDocs, orderBy, query } from 'firebase/firestore';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import LoadingScreen from '../../_components/LoadingScreen';
+import { db } from '../../_constants/firebaseConfig';
 
-interface Update {
-  id: string;
-  type: 'alert' | 'event' | 'info' | 'weather';
-  title: string;
-  message: string;
-  timestamp: Date;
-  priority: 'high' | 'medium' | 'low';
-}
-
-// Sample data - In production, this would come from Firebase
-const sampleUpdates: Update[] = [
-  {
-    id: '1',
-    type: 'alert',
-    title: 'Festival Season Travel Advisory',
-    message: 'Expect increased traffic and accommodation prices during Vesak celebrations next week. Book your stays in advance.',
-    timestamp: new Date(),
-    priority: 'high'
-  },
-  {
-    id: '2',
-    type: 'weather',
-    title: 'Weather Alert: Heavy Rain',
-    message: 'Heavy rainfall expected in the Central and Southern provinces over the next 48 hours. Plan indoor activities.',
-    timestamp: new Date(Date.now() - 3600000), // 1 hour ago
-    priority: 'high'
-  },
-  {
-    id: '3',
-    type: 'event',
-    title: 'Perahera Festival Tonight',
-    message: "Don't miss the spectacular Kandy Esala Perahera tonight at 7 PM. Best viewing spots along D.S. Senanayake Street.",
-    timestamp: new Date(Date.now() - 7200000), // 2 hours ago
-    priority: 'medium'
-  },
-  {
-    id: '4',
-    type: 'info',
-    title: 'New Train Schedule',
-    message: 'Updated train schedules for Colombo-Kandy route now available. Check the Transport section for details.',
-    timestamp: new Date(Date.now() - 86400000), // 1 day ago
-    priority: 'low'
-  }
-];
-
-const getIconName = (type: Update['type']) => {
-  switch (type) {
-    case 'alert':
-      return 'warning';
-    case 'event':
-      return 'calendar';
-    case 'info':
-      return 'information-circle';
-    case 'weather':
-      return 'partly-sunny';
-    default:
-      return 'information-circle';
-  }
+// simple BackArrow and Heart components using Ionicons to avoid missing component errors
+const BackArrow: React.FC<{ width?: number; height?: number; color?: string }> = ({ width = 24, height = 24, color = 'black' }) => {
+  // Ionicons accepts a single size prop; pick the larger of width/height
+  const size = Math.max(width || 24, height || 24);
+  return <Ionicons name="arrow-back" size={size} color={color} />;
 };
 
-const getTypeColor = (type: Update['type']) => {
-  switch (type) {
-    case 'alert':
-      return '#ff6b6b';
-    case 'event':
-      return '#4dabf7';
-    case 'info':
-      return '#51cf66';
-    case 'weather':
-      return '#ffd43b';
-    default:
-      return '#868e96';
-  }
+const Heart: React.FC<{ width?: number; height?: number; color?: string }> = ({ width = 16, height = 16, color = 'black' }) => {
+  const size = Math.max(width || 16, height || 16);
+  return <Ionicons name="heart" size={size} color={color} />;
 };
 
-const getPriorityIndicator = (priority: Update['priority']) => {
-  switch (priority) {
-    case 'high':
-      return styles.highPriority;
-    case 'medium':
-      return styles.mediumPriority;
-    case 'low':
-      return styles.lowPriority;
-    default:
-      return styles.lowPriority;
-  }
-};
+export default function Feed() {
+  const [loaded] = useFonts({
+    'Poppins-Regular': require('../../assets/fonts/Poppins-Regular.ttf'), 
+    'Poppins-SemiBold': require('../../assets/fonts/Poppins-SemiBold.ttf'),
+    'Poppins-Medium': require('../../assets/fonts/Poppins-Medium.ttf'),
+  });
+  // keep hooks (state/memo) here so they are always called in the same order
+  const [selectedTab, setSelectedTab] = useState<string>('');
+    const [categories, setCategories] = useState<{ key: string; color: string }[]>([]);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
-const formatTimestamp = (date: Date) => {
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  const minutes = Math.floor(diff / 60000);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
+  // helper to format Firestore Timestamp/ISO/Date to concise labels
+  // returns: 'right now', '1m', '5m', '1h', '2h', '1d', '2d', '1w', '3w', or 'Oct 20' for older
+  const timeAgo = (val: any) => {
+    if (!val) return '';
+    let date: Date;
+    try {
+      if (val && typeof val.toDate === 'function') date = val.toDate(); // Firestore Timestamp
+      else if (typeof val === 'string') date = new Date(val);
+      else if (val instanceof Date) date = val;
+      else date = new Date(val);
+    } catch {
+      return '';
+    }
 
-  if (days > 0) {
-    return `${days}d ago`;
-  }
-  if (hours > 0) {
-    return `${hours}h ago`;
-  }
-  if (minutes > 0) {
-    return `${minutes}m ago`;
-  }
-  return 'Just now';
-};
+    const now = Date.now();
+    const diff = Math.floor((now - date.getTime()) / 1000); // seconds
+    if (diff < 10) return 'Right now';
+    if (diff < 60) return `${diff}s`;
+    const minutes = Math.floor(diff / 60);
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days}d`;
+    const weeks = Math.floor(days / 7);
+    if (weeks < 4) return `${weeks}w`;
 
-export default function FeedScreen() {
-  const [refreshing, setRefreshing] = useState(false);
-  const [updates, setUpdates] = useState<Update[]>(sampleUpdates);
-
-  const onRefresh = async () => {
-    setRefreshing(true);
-    // In production, fetch new updates here
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
+    // older: show short date
+    try {
+      return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    } catch {
+      return date.toDateString();
+    }
   };
 
-  const renderUpdate = ({ item }: { item: Update }) => (
-    <TouchableOpacity style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={[styles.typeIndicator, { backgroundColor: getTypeColor(item.type) }]}>
-          <Ionicons name={getIconName(item.type)} size={20} color="white" />
-        </View>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>{item.title}</Text>
-          <Text style={styles.timestamp}>{formatTimestamp(item.timestamp)}</Text>
-        </View>
-        <View style={[styles.priorityDot, getPriorityIndicator(item.priority)]} />
-      </View>
-      <Text style={styles.message}>{item.message}</Text>
-    </TouchableOpacity>
-  );
+  // derived filtered posts based on selected tab
+  const filteredPosts = useMemo(() => {
+    if (!selectedTab) return posts;
+    return posts.filter((p) => p.category === selectedTab);
+  }, [posts, selectedTab]);
+
+  // fetch categories and posts from Firestore on mount
+  useEffect(() => {
+    let mounted = true;
+
+    const fetchFeed = async () => {
+      try {
+        // load categories mapping from meta/feed_categories
+        const metaRef = doc(db, 'meta', 'feed_categories');
+        const metaSnap = await getDoc(metaRef);
+        if (metaSnap.exists()) {
+          const data = metaSnap.data();
+          const catsObj = data.categories || data;
+          let cats = Object.keys(catsObj).map((k) => ({ key: k, color: catsObj[k] }));
+          // order categories exactly as requested; unknowns go last
+          const desiredOrder = ['Trending','Alerts','Weather','Transport','Events','Sites','Deals','Tips'];
+          cats = cats.sort((a, b) => {
+            const ia = desiredOrder.indexOf(a.key);
+            const ib = desiredOrder.indexOf(b.key);
+            if (ia === -1 && ib === -1) return 0;
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            return ia - ib;
+          });
+          if (mounted) {
+            setCategories(cats);
+            // set default selected tab to Trending if present, otherwise first category
+            setSelectedTab((prev) => (prev || (cats.find(c => c.key === 'Trending')?.key) || cats[0]?.key || ''));
+          }
+        }
+
+        // load posts ordered by uploadedAt desc
+        const q = query(collection(db, 'feed_posts'), orderBy('uploadedAt', 'desc'));
+        const snap = await getDocs(q);
+        const loaded = snap.docs.map((d) => ({ id: d.id, ...(d.data() || {}) }));
+        if (mounted) setPosts(loaded);
+      } catch {
+        // keep console error for dev diagnostics
+        console.error('Failed to load feed from Firestore');
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    fetchFeed();
+    return () => { mounted = false; };
+  }, []);
+
+  if (!loaded) {
+    return null;
+  }
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Updates</Text>
-        <Text style={styles.headerSubtitle}>Stay informed about local news and events</Text>
+        <BackArrow width={31} height={31} />
+        <Text style={styles.headerTitle}>Feed</Text>
       </View>
 
-      <FlatList
-        data={updates}
-        renderItem={renderUpdate}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      />
-    </View>
+      {loading ? <LoadingScreen message="Loading feed..." /> : null}
+
+      <Text style={styles.featuredNews}>Featured News</Text>
+
+      {/* Featured horizontal carousel: use Firestore "featured" posts */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.horizontalScroll} contentContainerStyle={{ paddingHorizontal: 15 }}>
+        {posts.filter((p) => p.featured).map((p) => {
+          const badgeColor = categories.find((c) => c.key === p.category)?.color || '#85cc16';
+          return (
+            <View key={p.id} style={styles.peraheraCard}>
+              <Image source={{ uri: p.image }} style={styles.peraheraImage} />
+              <LinearGradient
+                colors={['transparent', 'rgba(0,0,0,0.7)']}
+                start={{ x: 0.5, y: 0 }}
+                end={{ x: 0.5, y: 1 }}
+                style={styles.gradient}
+              />
+              <View style={[styles.trendingBadge, { backgroundColor: badgeColor }]}>
+                <Text style={styles.trendingText}>{p.category}</Text>
+              </View>
+
+              {/* top-right overlay for time and likes */}
+              <View style={styles.topRightOverlay}>
+                <View style={styles.topRightItem}>
+                  <Ionicons name="time-outline" size={14} color="white" />
+                  <Text style={styles.topRightText}>{timeAgo(p.uploadedAt)}</Text>
+                </View>
+                <View style={styles.topRightItem}>
+                  <Heart width={14} height={14} color="white" />
+                  <Text style={styles.topRightText}>{p.likes ?? ''}</Text>
+                </View>
+              </View>
+
+              <View style={styles.cardInfo}>
+                <Text style={styles.peraheraText}>{p.title}</Text>
+              </View>
+            </View>
+          );
+        })}
+      </ScrollView>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagsScroll} contentContainerStyle={{ paddingHorizontal: 15 }}>
+        {categories.map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            onPress={() => setSelectedTab(tab.key)}
+            style={[
+              styles.tag,
+              { backgroundColor: tab.color },
+              selectedTab === tab.key && styles.tagSelected,
+            ]}
+          >
+            <Text style={[styles.tagText, selectedTab === tab.key ? styles.tagTextActive : null]}>{tab.key}</Text>
+          </TouchableOpacity>
+        ))}
+
+      </ScrollView>
+
+      {filteredPosts.map((post) => (
+        <View key={post.id} style={styles.festivalCard}>
+          <Image source={{ uri: post.image }} style={styles.festivalImage} />
+          <Text style={styles.festivalTitle}>{post.title}</Text>
+          <Text style={styles.festivalDescription}>{post.description ?? 'Don’t miss the latest updates. Tap to read more.'}</Text>
+          <View style={styles.festivalInfo}>
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                <Ionicons name="time-outline" size={12} color="black" />
+                <Text style={styles.festivalInfoText}>{timeAgo(post.uploadedAt)}</Text>
+            </View>
+            <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                <Heart width={12} height={12} color="black" />
+                <Text style={styles.festivalInfoText}>{post.likes ?? ''}</Text>
+            </View>
+          </View>
+        </View>
+      ))}
+
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: 'white',
+    paddingHorizontal: 15,
   },
   header: {
-    padding: 16,
-    backgroundColor: '#f8f8f8',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    color: '#666',
-  },
-  list: {
-    padding: 16,
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginTop: 50,
+    marginBottom: 20,
   },
-  typeIndicator: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  titleContainer: {
+  headerTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 23,
+    textAlign: 'center',
     flex: 1,
+    marginRight: 31, // to balance the back button
   },
-  title: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
+  featuredNews: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 22,
+    marginBottom: 15,
   },
-  timestamp: {
+  horizontalScroll: {
+    marginBottom: 20,
+    // counteract parent container padding so carousel can reach screen edges
+    marginHorizontal: -15,
+  },
+  peraheraCard: {
+    width: 320,
+    height: 173,
+    borderRadius: 12,
+    marginRight: 15,
+  },
+  peraheraImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+  },
+  gradient: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 12,
+  },
+  trendingBadge: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    backgroundColor: '#85cc16',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 17.5,
+  },
+  trendingText: {
+    color: 'black',
+    fontFamily: 'Poppins-Regular',
     fontSize: 12,
-    color: '#999',
-    marginTop: 2,
   },
-  message: {
-    fontSize: 14,
-    color: '#666',
+  cardInfo: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    right: 10,
+  },
+  cardInfoTop: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 5,
+    gap: 8
+  },
+  cardInfoText: {
+    color: 'white',
+    fontFamily: 'Poppins-Regular',
+    fontSize: 8,
+    marginLeft: 4,
+  },
+  peraheraText: {
+    color: 'white',
+    fontFamily: 'Poppins-Medium',
+    fontSize: 17,
     lineHeight: 20,
   },
-  priorityDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginLeft: 8,
+  tagsScroll: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    // align tags to screen edges (counteract parent padding)
+    marginHorizontal: -15,
   },
-  highPriority: {
-    backgroundColor: '#ff6b6b',
+  tag: {
+    paddingHorizontal: 15,
+    paddingVertical: 5,
+    borderRadius: 17.5,
+    marginRight: 10,
+    // keep a constant border so selection doesn't shift layout
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  mediumPriority: {
-    backgroundColor: '#ffd43b',
+  tagText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 14,
   },
-  lowPriority: {
-    backgroundColor: '#51cf66',
+  tagSelected: {
+    borderColor: '#888',
   },
+  tagTextActive: {
+    color: '#111',
+  },
+  festivalCard: {
+    marginBottom: 20,
+  },
+  festivalImage: {
+    width: '100%',
+    height: 156,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  festivalTitle: {
+    fontFamily: 'Poppins-SemiBold',
+    fontSize: 17,
+    marginBottom: 5,
+  },
+  festivalDescription: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 13,
+    color: '#6b7066',
+    marginBottom: 10,
+  },
+  topRightOverlay: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+    alignItems: 'center',
+    gap: 10,
+  },
+  topRightItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 6,
+  },
+  topRightText: {
+    color: 'white',
+    fontFamily: 'Poppins-Medium',
+    fontSize: 12,
+    marginLeft: 6,
+  },
+  festivalInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 15,
+  },
+  festivalInfoText: {
+    fontFamily: 'Poppins-Regular',
+    fontSize: 11,
+    marginLeft: 4,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#d9d9d9',
+    marginVertical: 10,
+  }
 });
