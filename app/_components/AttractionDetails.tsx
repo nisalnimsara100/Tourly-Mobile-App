@@ -338,7 +338,15 @@ const AttractionHeader: React.FC<AttractionHeaderProps> = ({
             </TouchableOpacity>
           </View>
 
-          {/* Explore button intentionally hidden here; added below if needed */}
+          {/* Explore button: visible and calls onExplorePress to scroll to details */}
+          {onExplorePress && (
+            <View style={styles.exploreRowCentered}>
+              <TouchableOpacity style={styles.exploreButtonLarge} onPress={onExplorePress} activeOpacity={0.9}>
+                <LeftArrowSvg width={18} height={18} style={{ transform: [{ rotate: '-90deg' }], marginRight: 8 }} />
+                <Text style={styles.exploreButtonTextLarge}>Explore</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       </LinearGradient>
     </View>
